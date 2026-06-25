@@ -1,0 +1,499 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  EDITOR
+  USER
+}
+
+enum VehicleType {
+  CAR
+  BIKE
+  SCOOTER
+  EV
+  COMMERCIAL
+}
+
+enum PublishStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model User {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String?
+  email     String   @unique
+  password  String?
+  role      Role     @default(USER)
+  image     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  accounts Account[]
+  sessions Session[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String  @db.ObjectId
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  sessionToken String   @unique
+  userId       String   @db.ObjectId
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model Brand {
+  id          String        @id @default(auto()) @map("_id") @db.ObjectId
+  name        String        @unique
+  slug        String        @unique
+  logo        String?
+  logoFileId  String?
+  description String?
+  country     String?
+  founded     Int?
+  isPopular   Boolean       @default(false)
+  status      PublishStatus @default(PUBLISHED)
+  sortOrder   Int           @default(0)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  vehicles Vehicle[]
+  seo      Seo?
+
+  @@map("brands")
+}
+
+model Category {
+  id          String      @id @default(auto()) @map("_id") @db.ObjectId
+  name        String      @unique
+  slug        String      @unique
+  type        VehicleType
+  description String?
+  icon        String?
+  image       String?
+  isActive    Boolean     @default(true)
+  sortOrder   Int         @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  vehicles Vehicle[]
+
+  @@map("categories")
+}
+
+model Vehicle {
+  id               String        @id @default(auto()) @map("_id") @db.ObjectId
+  name             String
+  slug             String        @unique
+  brandId          String        @db.ObjectId
+  categoryId       String        @db.ObjectId
+  type             VehicleType
+  description      String?
+  shortDescription String?
+
+  priceMin        Float?
+  priceMax        Float?
+  priceDisplay    String?
+  exShowroomPrice Float?
+  onRoadPrice     Float?
+
+  launchDate       DateTime?
+  discontinuedDate DateTime?
+  isUpcoming       Boolean   @default(false)
+  isPopular        Boolean   @default(false)
+  isElectric       Boolean   @default(false)
+  isNew            Boolean   @default(false)
+
+  batteryCapacity String?
+  chargingTime    String?
+  fastCharging    Boolean @default(false)
+  range           String?
+  motorPower      String?
+  motorTorque     String?
+
+  bodyType  String?
+  segment   String?
+  mileage   String?
+  topSpeed  String?
+  engine    String?
+  power     String?
+  torque    String?
+
+  overview      String?
+  keyHighlights Json?
+  pros          Json?
+  cons          Json?
+
+  brochureUrl    String?
+  brochureFileId String?
+  videoUrl       String?
+
+  featured           Boolean @default(false)
+  availabilityStatus String  @default("available")
+  featuredImage      String?
+  featuredFileId     String?
+
+  acceleration     String?
+  acChargingTime   String?
+  dcChargingTime   String?
+  chargingPortType String?
+  drivetrainType   String?
+  seatingCapacity  Int?
+
+  vehicleWarranty String?
+  batteryWarranty String?
+
+  status    PublishStatus @default(DRAFT)
+  sortOrder Int           @default(0)
+  viewCount Int           @default(0)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  brand    Brand    @relation(fields: [brandId], references: [id])
+  category Category @relation(fields: [categoryId], references: [id])
+
+  variants   Variant[]
+  images     VehicleImage[]
+  colours    VehicleColour[]
+  specGroups VehicleSpecGroup[]
+  features   VehicleFeature[]
+  faqs       Faq[]
+  seo        Seo?
+  media      Media[]
+
+  @@map("vehicles")
+}
+
+model Variant {
+  id           String        @id @default(auto()) @map("_id") @db.ObjectId
+  vehicleId    String        @db.ObjectId
+  name         String
+  slug         String
+  priceMin     Float?
+  priceMax     Float?
+  priceDisplay String?
+  fuelType     String?
+  transmission String?
+  engine       String?
+  power        String?
+  torque       String?
+  mileage      String?
+  range        String?
+  isDefault    Boolean       @default(false)
+  status       PublishStatus @default(PUBLISHED)
+  sortOrder    Int           @default(0)
+  specs        Json?
+  features     Json?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@map("variants")
+}
+
+model VehicleImage {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  vehicleId String   @db.ObjectId
+  url       String
+  fileId    String?
+  alt       String?
+  caption   String?
+  type      String   @default("gallery")
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@map("vehicle_images")
+}
+
+model VehicleColour {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  vehicleId String   @db.ObjectId
+  name      String
+  hexCode   String?
+  imageUrl  String?
+  fileId    String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@map("vehicle_colours")
+}
+
+model SpecGroup {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String   @unique
+  slug      String   @unique
+  icon      String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  specItems    SpecItem[]
+  vehicleSpecs VehicleSpecGroup[]
+
+  @@map("spec_groups")
+}
+
+model SpecItem {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  groupId     String   @db.ObjectId
+  name        String
+  slug        String
+  unit        String?
+  description String?
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  group      SpecGroup          @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  specValues VehicleSpecValue[]
+
+  @@map("spec_items")
+}
+
+model VehicleSpecGroup {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  vehicleId String   @db.ObjectId
+  groupId   String   @db.ObjectId
+  createdAt DateTime @default(now())
+
+  vehicle    Vehicle          @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  group      SpecGroup        @relation(fields: [groupId], references: [id])
+  specValues VehicleSpecValue[]
+
+  @@map("vehicle_spec_groups")
+}
+
+model VehicleSpecValue {
+  id                 String   @id @default(auto()) @map("_id") @db.ObjectId
+  vehicleSpecGroupId String   @db.ObjectId
+  specItemId         String   @db.ObjectId
+  value              String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  vehicleSpecGroup VehicleSpecGroup @relation(fields: [vehicleSpecGroupId], references: [id], onDelete: Cascade)
+  specItem         SpecItem         @relation(fields: [specItemId], references: [id])
+
+  @@map("vehicle_spec_values")
+}
+
+model VehicleFeature {
+  id        String  @id @default(auto()) @map("_id") @db.ObjectId
+  vehicleId String  @db.ObjectId
+  category  String
+  name      String
+  available Boolean @default(true)
+  note      String?
+  sortOrder Int     @default(0)
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@map("vehicle_features")
+}
+
+model News {
+  id          String        @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  slug        String        @unique
+  excerpt     String?
+  content     String
+  coverImage  String?
+  coverFileId String?
+  author      String?
+  tags        Json?
+  vehicleId   String?
+  brandId     String?
+  type        String        @default("news")
+  status      PublishStatus @default(DRAFT)
+  publishedAt DateTime?
+  viewCount   Int           @default(0)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  seo Seo?
+
+  @@map("news")
+}
+
+model Blog {
+  id          String        @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  slug        String        @unique
+  excerpt     String?
+  content     String
+  coverImage  String?
+  coverFileId String?
+  author      String?
+  tags        Json?
+  type        String        @default("article")
+  vehicleId   String?
+  status      PublishStatus @default(DRAFT)
+  publishedAt DateTime?
+  viewCount   Int           @default(0)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  seo Seo?
+
+  @@map("blogs")
+}
+
+model Faq {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  vehicleId String?  @db.ObjectId
+  question  String
+  answer    String
+  category  String?
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  vehicle Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@map("faqs")
+}
+
+model Seo {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  vehicleId       String?  @unique @db.ObjectId
+  brandId         String?  @unique @db.ObjectId
+  newsId          String?  @unique @db.ObjectId
+  blogId          String?  @unique @db.ObjectId
+  metaTitle       String?
+  metaDescription String?
+  metaKeywords    String?
+  canonicalUrl    String?
+  ogTitle         String?
+  ogDescription   String?
+  ogImage         String?
+  schema          Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  vehicle Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  brand   Brand?   @relation(fields: [brandId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  news    News?    @relation(fields: [newsId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  blog    Blog?    @relation(fields: [blogId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@map("seo")
+}
+
+model Media {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  vehicleId  String?  @db.ObjectId
+  name       String
+  fileName   String
+  fileId     String
+  url        String
+  type       String
+  mimeType   String?
+  size       Int?
+  width      Int?
+  height     Int?
+  alt        String?
+  tags       Json?
+  uploadedBy String?
+  createdAt  DateTime @default(now())
+
+  vehicle Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@map("media")
+}
+
+model Setting {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  key       String   @unique
+  value     String
+  type      String   @default("string")
+  group     String?
+  label     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("settings")
+}
+
+model Banner {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  title     String
+  subtitle  String?
+  imageUrl  String
+  fileId    String?
+  linkUrl   String?
+  linkLabel String?
+  position  String   @default("hero")
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("banners")
+}
+
+model Lead {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  mobile      String
+  email       String?
+  city        String?
+  vehicleName String?
+  vehicleType String?
+  buyTime     String?
+  sellCar     String?
+  source      String   @default("offer_popup")
+  status      String   @default("new")
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("leads")
+}
