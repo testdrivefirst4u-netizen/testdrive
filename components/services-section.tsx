@@ -38,7 +38,7 @@ const SERVICES = [
     accent: "text-rose-700",
   },
   {
-    icon: Wrench, title: "Car Service", desc: "Book maintenance & service appointments online",
+    icon: Wrench, title: "Car Service", desc: "Book periodic maintenance & repairs online",
     href: "/services",
     gradient: "from-teal-500 to-cyan-700", glow: "shadow-teal-500/25",
     bg: "from-teal-50/80 to-cyan-50/30", border: "border-teal-100 hover:border-teal-200",

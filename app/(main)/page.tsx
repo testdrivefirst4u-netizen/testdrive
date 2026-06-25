@@ -88,7 +88,7 @@ function CompareSkeleton() {
   );
 }
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://walley.broaddcast.com";
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://testdrivefirst.com";
 
 const organizationJsonLd = {
   "@context": "https://schema.org",
@@ -120,7 +120,7 @@ export default function HomePage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify([organizationJsonLd, webSiteJsonLd]) }} />
       {/* Hero */}
       <Hero />
-      {/* <CategoryNav /> */}
+      <CategoryNav />
 
       {/* Popular Brands */}
       <Suspense fallback={<BrandSkeleton />}>

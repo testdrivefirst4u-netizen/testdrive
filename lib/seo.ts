@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://walley.broaddcast.com";
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://testdrivefirst.com";
 const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME || "Walley - India's Automotive Marketplace";
 
 export function buildMetadata({

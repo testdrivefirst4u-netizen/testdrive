@@ -7,7 +7,7 @@ import {
   Newspaper, Star, Calculator, MapPin, Phone, Mail,
   Facebook, Twitter, Instagram, Youtube,
   Shield, ChevronRight, HeartHandshake, Zap,
-  Send, CheckCircle2, TrendingUp,
+  Send, CheckCircle2, TrendingUp, Loader2,
 } from "lucide-react";
 
 const QUICK_LINKS = [
@@ -39,20 +39,30 @@ const POPULAR_BRANDS = [
 ];
 
 const SOCIALS = [
-  { icon: Facebook,  href: "#", label: "Facebook",    bg: "hover:bg-[#1877f2]" },
-  { icon: Twitter,   href: "#", label: "X (Twitter)", bg: "hover:bg-[#0f1419]" },
-  { icon: Instagram, href: "#", label: "Instagram",   bg: "hover:bg-gradient-to-br hover:from-[#f58529] hover:via-[#dd2a7b] hover:to-[#515bd4]" },
-  { icon: Youtube,   href: "#", label: "YouTube",     bg: "hover:bg-[#ff0000]" },
+  { icon: Facebook,  href: "https://facebook.com/walleyindia",    label: "Facebook",    bg: "hover:bg-[#1877f2]" },
+  { icon: Twitter,   href: "https://x.com/walleyindia",           label: "X (Twitter)", bg: "hover:bg-[#0f1419]" },
+  { icon: Instagram, href: "https://instagram.com/walley.india",  label: "Instagram",   bg: "hover:bg-gradient-to-br hover:from-[#f58529] hover:via-[#dd2a7b] hover:to-[#515bd4]" },
+  { icon: Youtube,   href: "https://youtube.com/@walleyindia",    label: "YouTube",     bg: "hover:bg-[#ff0000]" },
 ];
 
 function NewsletterForm() {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
+    setLoading(true);
+    try {
+      await fetch("/api/newsletter", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+    } catch {}
     setSent(true);
+    setLoading(false);
   };
 
   return (
@@ -96,10 +106,11 @@ function NewsletterForm() {
               />
               <button
                 type="submit"
-                className="h-11 px-5 bg-white text-blue-700 font-bold text-sm rounded-xl hover:bg-blue-50 transition-all flex items-center gap-2 hover:shadow-lg whitespace-nowrap"
+                disabled={loading}
+                className="h-11 px-5 bg-white text-blue-700 font-bold text-sm rounded-xl hover:bg-blue-50 disabled:opacity-70 transition-all flex items-center gap-2 hover:shadow-lg whitespace-nowrap"
               >
-                <Send className="w-3.5 h-3.5" />
-                Subscribe
+                {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                {loading ? "Subscribing…" : "Subscribe"}
               </button>
             </form>
           )}

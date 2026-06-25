@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { AdminSidebar } from "@/components/admin/admin-sidebar";
 import { AdminHeader } from "@/components/admin/admin-header";
+import prisma from "@/lib/prisma";
 
 export default async function ProtectedAdminLayout({
   children,
@@ -18,9 +19,11 @@ export default async function ProtectedAdminLayout({
     redirect("/admin/login");
   }
 
+  const newLeadsCount = await prisma.lead.count({ where: { status: "new" } });
+
   return (
     <div className="flex h-screen bg-gray-100">
-      <AdminSidebar user={session.user as any} />
+      <AdminSidebar user={session.user as any} newLeadsCount={newLeadsCount} />
       <div className="flex flex-col flex-1 overflow-hidden">
         <AdminHeader user={session.user as any} />
         <main className="flex-1 overflow-y-auto p-6">{children}</main>

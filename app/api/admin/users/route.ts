@@ -23,15 +23,20 @@ export async function POST(req: NextRequest) {
     const session = await auth();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const body = await req.json();
-    const { name, email, password, role } = body;
+    const callerRole = (session.user as any)?.role;
+    const body       = await req.json();
+    const { name, email, password, role, permissions } = body;
 
     if (!email || !password) return NextResponse.json({ error: "Email and password required" }, { status: 400 });
 
+    if (role === "SUPER_ADMIN" && callerRole !== "SUPER_ADMIN") {
+      return NextResponse.json({ error: "Only Super Admin can create a Super Admin" }, { status: 403 });
+    }
+
     const hashed = await bcrypt.hash(password, 12);
-    const user = await prisma.user.create({
-      data: { name, email, password: hashed, role: role || "EDITOR" },
-      select: { id: true, name: true, email: true, role: true },
+    const user   = await prisma.user.create({
+      data: { name, email, password: hashed, role: role || "EDITOR", permissions: permissions || [] },
+      select: { id: true, name: true, email: true, role: true, permissions: true },
     });
     return NextResponse.json(user, { status: 201 });
   } catch (e: any) {

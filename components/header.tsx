@@ -41,7 +41,7 @@ const MORE_ITEMS = [
   { icon: Calculator, label: "EMI Calculator",  sub: "Plan your car loan",        href: "/emi-calculator" },
   { icon: Shield,     label: "Car Insurance",   sub: "Compare & save on premium", href: "/insurance"      },
   { icon: MapPin,     label: "Find Dealers",    sub: "Authorised near you",       href: "/dealers"        },
-  // { icon: Star,       label: "Expert Reviews",  sub: "In-depth road tests",       href: "/reviews"        },
+  { icon: Star,       label: "Expert Reviews",  sub: "In-depth road tests",       href: "/reviews"        },
   { icon: Newspaper,  label: "Auto News",       sub: "Latest auto updates",       href: "/news"           },
   { icon: Headphones, label: "Support",         sub: "Help & contact us",         href: "/contact"        },
 ];
@@ -53,7 +53,7 @@ const MOBILE_NAV = [
   { icon: Truck,          label: "Commercial",        href: "/commercial",   accent: "text-purple-600", bg: "bg-purple-50" },
   { icon: ArrowLeftRight, label: "Compare Vehicles",  href: "/compare",      accent: "text-amber-600",  bg: "bg-amber-50"  },
   { icon: Calculator,     label: "EMI Calculator",    href: "/emi-calculator",accent:"text-blue-600",   bg: "bg-blue-50"   },
-  // { icon: Star,           label: "Reviews",           href: "/reviews",      accent: "text-yellow-600", bg: "bg-yellow-50" },
+  { icon: Star,           label: "Reviews",           href: "/reviews",      accent: "text-yellow-600", bg: "bg-yellow-50" },
   { icon: Newspaper,      label: "Auto News",         href: "/news",         accent: "text-slate-600",  bg: "bg-slate-100" },
   { icon: Shield,         label: "Car Insurance",     href: "/insurance",    accent: "text-rose-600",   bg: "bg-rose-50"   },
   { icon: MapPin,         label: "Find Dealers",      href: "/dealers",      accent: "text-green-600",  bg: "bg-green-50"  },
@@ -255,12 +255,12 @@ export function Header() {
               </Link>
 
               {/* Reviews */}
-              {/* <Link href="/reviews"
+              <Link href="/reviews"
                 className={`hidden xl:flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all ${
                   isActive("/reviews") ? "bg-blue-50 text-blue-700" : "text-slate-600 hover:text-blue-700 hover:bg-slate-50"
                 }`}>
                 <Star className="w-3.5 h-3.5" /> Reviews
-              </Link> */}
+              </Link>
 
               {/* News */}
               <Link href="/news"

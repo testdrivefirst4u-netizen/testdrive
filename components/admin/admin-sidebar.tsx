@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Tag, Car, List, Settings2, Zap, Newspaper,
   BookOpen, HelpCircle, Users, Image, BrainCircuit, Settings,
   Globe, ChevronDown, ChevronRight, MonitorPlay,
-  ExternalLink, ShieldCheck,
+  ExternalLink, ShieldCheck, Inbox,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -34,6 +34,7 @@ const nav = [
       { label: "FAQs",  href: "/admin/faqs",  icon: HelpCircle},
     ],
   },
+  { label: "Leads",        href: "/admin/leads",      icon: Inbox       },
   { label: "Banners",      href: "/admin/banners",    icon: MonitorPlay },
   { label: "Media Library",href: "/admin/media",      icon: Image       },
   { label: "Users",        href: "/admin/users",      icon: Users       },
@@ -44,11 +45,22 @@ const nav = [
 
 interface Props {
   user: { name?: string | null; email?: string | null; role: string };
+  permissions?: string[];
+  newLeadsCount?: number;
 }
 
-export function AdminSidebar({ user }: Props) {
+export function AdminSidebar({ user, permissions = [], newLeadsCount = 0 }: Props) {
   const pathname = usePathname();
   const [open, setOpen] = useState<string[]>(["Vehicles", "Content"]);
+
+  const isEditor = user.role === "EDITOR";
+  // Extract the segment key from an href like "/admin/spec-groups" → "spec-groups"
+  function canSee(href: string) {
+    if (!isEditor) return true;
+    const segment = href.split("/")[2] ?? "";
+    if (!segment || segment === "dashboard") return true;
+    return permissions.includes(segment);
+  }
 
   function toggle(label: string) {
     setOpen((prev) => prev.includes(label) ? prev.filter((l) => l !== label) : [...prev, label]);
@@ -88,6 +100,11 @@ export function AdminSidebar({ user }: Props) {
                 )}>
                 <item.icon className="w-4 h-4 shrink-0" />
                 {item.label}
+                {item.label === "Leads" && newLeadsCount > 0 && (
+                  <span className="ml-auto text-[9px] font-black bg-amber-500 text-white px-1.5 py-0.5 rounded-full leading-none">
+                    {newLeadsCount}
+                  </span>
+                )}
               </Link>
             );
           }

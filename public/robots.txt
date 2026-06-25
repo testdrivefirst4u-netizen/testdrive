@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+
+# Block admin and API routes
+Disallow: /admin/
+Disallow: /api/
+Disallow: /account/
+Disallow: /account/settings
+Disallow: /account/security
+
+# Sitemap
+Sitemap: https://testdrivefirst.com/sitemap.xml

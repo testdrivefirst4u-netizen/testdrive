@@ -25,7 +25,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         });
 
         if (!user || !user.password) return null;
-        if (!["SUPER_ADMIN", "ADMIN", "EDITOR"].includes(user.role)) return null;
 
         const valid = await bcrypt.compare(
           credentials.password as string,
@@ -33,7 +32,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         );
         if (!valid) return null;
 
-        return { id: user.id, name: user.name, email: user.email, role: user.role };
+        return {
+          id:          user.id,
+          name:        user.name,
+          email:       user.email,
+          role:        user.role,
+          permissions: user.permissions ?? [],
+        };
       },
     }),
   ],
@@ -44,4 +49,5 @@ export type SessionUser = {
   name?: string | null;
   email?: string | null;
   role: Role;
+  permissions: string[];
 };
