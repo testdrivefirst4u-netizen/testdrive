@@ -1,16 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Phone, Mail, MapPin, Send, CheckCircle2, Clock, MessageSquare, ChevronRight, Loader2 } from "lucide-react";
+import { Phone, Mail, MapPin, Send, CheckCircle2, Clock, MessageSquare, ChevronRight, Loader2, Tag } from "lucide-react";
 
-const EMPTY = { name: "", email: "", phone: "", subject: "", message: "" };
+const EMPTY = { name: "", email: "", phone: "", subject: "", message: "", brandId: "" };
+
+interface Brand { id: string; name: string }
 
 export default function ContactPage() {
   const [form, setForm] = useState(EMPTY);
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [brands, setBrands] = useState<Brand[]>([]);
+
+  useEffect(() => {
+    fetch("/api/brands")
+      .then(r => r.json())
+      .then(d => setBrands(Array.isArray(d) ? d : (d.brands ?? [])))
+      .catch(() => {});
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -20,7 +30,7 @@ export default function ContactPage() {
       const res = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, brandId: form.brandId || undefined }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error || "Something went wrong."); return; }
@@ -62,7 +72,7 @@ export default function ContactPage() {
                 </div>
                 <h2 className="text-xl font-bold text-gray-900 mb-2">Message Sent!</h2>
                 <p className="text-gray-500 text-sm mb-6">We&apos;ll get back to you within 24 hours.</p>
-                <button onClick={() => { setSent(false); setForm(EMPTY); }}
+                <button onClick={() => { setSent(false); setForm({ ...EMPTY }); }}
                   className="text-sm font-semibold text-blue-600 hover:text-blue-700 underline">
                   Send another message
                 </button>
@@ -108,6 +118,18 @@ export default function ContactPage() {
                       <option>Other</option>
                     </select>
                   </div>
+                  {brands.length > 0 && (
+                    <div>
+                      <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">
+                        <Tag className="w-3 h-3 text-blue-500" /> Brand
+                      </label>
+                      <select value={form.brandId} onChange={(e) => setForm({ ...form, brandId: e.target.value })}
+                        className="w-full h-11 px-4 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none text-sm transition-all bg-white appearance-none">
+                        <option value="">Select brand (optional)</option>
+                        {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                      </select>
+                    </div>
+                  )}
                   <div>
                     <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Message *</label>
                     <textarea required rows={5} placeholder="How can we help you?" value={form.message}

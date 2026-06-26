@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Car, CheckCircle2, MapPin, Calendar, Phone, User,
-  Star, Zap, Shield, Clock, ArrowRight, Loader2,
+  Star, Zap, Shield, Clock, ArrowRight, Loader2, Tag,
 } from "lucide-react";
 
 const POPULAR_MODELS = [
@@ -21,12 +21,45 @@ const CITIES = [
   "Pune", "Kolkata", "Ahmedabad", "Jaipur", "Surat",
 ];
 
+interface Brand { id: string; name: string; slug: string }
+
+function matchBrand(brandName: string, brands: Brand[]): string {
+  if (!brandName || !brands.length) return "";
+  const q = brandName.toLowerCase().trim();
+  const exact = brands.find(b => b.name.toLowerCase() === q);
+  if (exact) return exact.id;
+  const partial = brands.find(b =>
+    b.name.toLowerCase().includes(q) || q.includes(b.name.toLowerCase())
+  );
+  return partial?.id ?? "";
+}
+
 export default function TestDrivePage() {
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step,     setStep]    = useState<1 | 2 | 3>(1);
   const [selected, setSelected] = useState("");
+  const [brandId,  setBrandId] = useState("");
+  const [brands,   setBrands]  = useState<Brand[]>([]);
   const [form, setForm] = useState({ name: "", phone: "", city: "", date: "" });
-  const [loading, setLoading] = useState(false);
+  const [loading,  setLoading] = useState(false);
   const [apiError, setApiError] = useState("");
+
+  useEffect(() => {
+    fetch("/api/brands")
+      .then(r => r.json())
+      .then(d => setBrands(Array.isArray(d) ? d : (d.brands ?? [])))
+      .catch(() => {});
+  }, []);
+
+  function selectModel(brand: string, model: string) {
+    setSelected(`${brand} ${model}`);
+    setBrandId(matchBrand(brand, brands));
+  }
+
+  function handleModelType(val: string) {
+    setSelected(val);
+    const firstWord = val.trim().split(/\s+/)[0] ?? "";
+    setBrandId(firstWord ? matchBrand(firstWord, brands) : "");
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -36,7 +69,11 @@ export default function TestDrivePage() {
       const res = await fetch("/api/test-drive", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: form.name, phone: form.phone, city: form.city, date: form.date, model: selected }),
+        body: JSON.stringify({
+          name: form.name, phone: form.phone,
+          city: form.city, date: form.date,
+          model: selected, brandId,
+        }),
       });
       const data = await res.json();
       if (!res.ok) { setApiError(data.error || "Something went wrong."); return; }
@@ -108,37 +145,58 @@ export default function TestDrivePage() {
             <p className="text-sm text-gray-500 mb-6">Select from popular models or type any model below</p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
-              {POPULAR_MODELS.map((m) => (
-                <button key={m.model} onClick={() => setSelected(`${m.brand} ${m.model}`)}
-                  className={`flex items-center gap-3 p-4 rounded-2xl border-2 text-left transition-all ${
-                    selected === `${m.brand} ${m.model}`
-                      ? "border-blue-600 bg-blue-50"
-                      : "border-gray-100 bg-white hover:border-blue-200 hover:bg-blue-50/30"
-                  }`}>
-                  <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <Car className="w-5 h-5 text-blue-700" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-gray-400 font-medium">{m.brand}</p>
-                    <p className="font-bold text-gray-900 text-sm">{m.model}</p>
-                    <p className="text-xs text-blue-600 font-semibold">{m.price}</p>
-                  </div>
-                  {m.badge && (
-                    <span className="text-[10px] font-bold text-white bg-blue-600 px-2 py-0.5 rounded-full">{m.badge}</span>
-                  )}
-                </button>
-              ))}
+              {POPULAR_MODELS.map((m) => {
+                const key = `${m.brand} ${m.model}`;
+                return (
+                  <button key={m.model} onClick={() => selectModel(m.brand, m.model)}
+                    className={`flex items-center gap-3 p-4 rounded-2xl border-2 text-left transition-all ${
+                      selected === key
+                        ? "border-blue-600 bg-blue-50"
+                        : "border-gray-100 bg-white hover:border-blue-200 hover:bg-blue-50/30"
+                    }`}>
+                    <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                      <Car className="w-5 h-5 text-blue-700" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-gray-400 font-medium">{m.brand}</p>
+                      <p className="font-bold text-gray-900 text-sm">{m.model}</p>
+                      <p className="text-xs text-blue-600 font-semibold">{m.price}</p>
+                    </div>
+                    {m.badge && (
+                      <span className="text-[10px] font-bold text-white bg-blue-600 px-2 py-0.5 rounded-full">{m.badge}</span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
 
-            <div className="mb-6">
+            <div className="mb-4">
               <label className="block text-sm font-semibold text-gray-700 mb-2">Or type any model</label>
               <div className="relative">
                 <Car className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input type="text" placeholder="e.g. Tata Harrier, Honda City..."
-                  value={selected} onChange={(e) => setSelected(e.target.value)}
+                  value={selected} onChange={(e) => handleModelType(e.target.value)}
                   className="w-full h-12 pl-10 pr-4 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none text-sm transition-all" />
               </div>
             </div>
+
+            {/* Brand selector — auto-filled, user can override */}
+            {brands.length > 0 && (
+              <div className="mb-6">
+                <label className="flex items-center gap-1.5 text-sm font-semibold text-gray-700 mb-2">
+                  <Tag className="w-3.5 h-3.5 text-blue-500" />
+                  Brand
+                  {brandId && <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full ml-1">Auto-detected</span>}
+                </label>
+                <select value={brandId} onChange={(e) => setBrandId(e.target.value)}
+                  className="w-full h-12 px-4 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none text-sm bg-white appearance-none">
+                  <option value="">Select brand (optional)</option>
+                  {brands.map(b => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <button onClick={() => selected && setStep(2)} disabled={!selected}
               className="w-full h-12 bg-blue-700 hover:bg-blue-600 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 text-sm">

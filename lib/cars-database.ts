@@ -2501,7 +2501,6 @@ export const carsDatabase: CarData[] = [
       sunroof: "Electric Sunroof",
       alloyWheels: true,
       ledHeadlights: true,
-      rearCamera: true,
     },
     variants: [
       {

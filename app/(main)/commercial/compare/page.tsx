@@ -18,19 +18,23 @@ export const metadata: Metadata = buildMetadata({
 });
 
 async function getPopularPairs() {
-  const vehicles = await prisma.vehicle.findMany({
-    where: { status: "PUBLISHED", type: "COMMERCIAL", isPopular: true },
-    take: 8,
-    orderBy: { viewCount: "desc" },
-    select: {
-      id: true, name: true, slug: true, priceDisplay: true, priceMin: true,
-      brand: { select: { name: true, slug: true } },
-      images: { take: 1, orderBy: { sortOrder: "asc" } },
-    },
-  });
-  const pairs: Array<[typeof vehicles[0], typeof vehicles[0]]> = [];
-  for (let i = 0; i + 1 < vehicles.length; i += 2) pairs.push([vehicles[i], vehicles[i + 1]]);
-  return pairs;
+  try {
+    const vehicles = await prisma.vehicle.findMany({
+      where: { status: "PUBLISHED", type: "COMMERCIAL", isPopular: true },
+      take: 8,
+      orderBy: { viewCount: "desc" },
+      select: {
+        id: true, name: true, slug: true, priceDisplay: true, priceMin: true,
+        brand: { select: { name: true, slug: true } },
+        images: { take: 1, orderBy: { sortOrder: "asc" } },
+      },
+    });
+    const pairs: Array<[typeof vehicles[0], typeof vehicles[0]]> = [];
+    for (let i = 0; i + 1 < vehicles.length; i += 2) pairs.push([vehicles[i], vehicles[i + 1]]);
+    return pairs;
+  } catch {
+    return [];
+  }
 }
 
 function PairCard({ a, b }: { a: { name: string; slug: string; priceDisplay: string | null; priceMin: number | null; images: Array<{ url: string }> }; b: typeof a }) {

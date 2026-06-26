@@ -8,30 +8,50 @@ export async function GET(req: NextRequest) {
     if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { searchParams } = new URL(req.url);
-    const source = searchParams.get("source") || "";
-    const status = searchParams.get("status") || "";
+    const source     = searchParams.get("source")     ?? "";
+    const status     = searchParams.get("status")     ?? "";
+    const brandId    = searchParams.get("brandId")    ?? "";
+    const q          = searchParams.get("q")          ?? "";
+    const unassigned = searchParams.get("unassigned") === "1";
 
     const where: any = {
-      ...(source ? { source } : {}),
-      ...(status ? { status } : {}),
+      ...(source     ? { source }         : {}),
+      ...(status     ? { status }         : {}),
+      ...(brandId    ? { brandId }        : {}),
+      ...(unassigned ? { dealerId: null } : {}),
     };
+    if (q) {
+      where.OR = [
+        { name:   { contains: q, mode: "insensitive" } },
+        { mobile: { contains: q } },
+      ];
+    }
 
     const leads = await prisma.lead.findMany({
       where,
+      include: {
+        brand:  { select: { name: true } },
+        dealer: { select: { name: true } },
+      },
       orderBy: { createdAt: "desc" },
       take: 10000,
     });
 
-    const headers = ["Name", "Mobile", "Email", "City", "Vehicle", "Source", "Status", "Notes", "Created At"];
+    const headers = ["Name", "Mobile", "Email", "City", "Vehicle", "Type", "Buy Time", "Sell Car", "Brand", "Dealer", "Source", "Status", "Notes", "Created At"];
     const rows = leads.map(l => [
       l.name,
       l.mobile,
-      l.email || "",
-      l.city  || "",
-      l.vehicleName || "",
+      l.email       ?? "",
+      l.city        ?? "",
+      l.vehicleName ?? "",
+      l.vehicleType ?? "",
+      l.buyTime     ?? "",
+      l.sellCar     ?? "",
+      l.brand?.name  ?? "",
+      l.dealer?.name ?? "",
       l.source,
       l.status,
-      (l.notes || "").replace(/[\n\r,]/g, " "),
+      (l.notes ?? "").replace(/[\n\r,]/g, " "),
       new Date(l.createdAt).toISOString().replace("T", " ").slice(0, 19),
     ]);
 

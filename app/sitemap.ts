@@ -19,24 +19,29 @@ function typeToComparePath(type: string): string {
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [vehicles, news, blogs, brands] = await Promise.all([
-    prisma.vehicle.findMany({
-      where: { status: "PUBLISHED" },
-      select: { slug: true, type: true, brand: { select: { slug: true } }, updatedAt: true, isPopular: true },
-    }),
-    prisma.news.findMany({
-      where: { status: "PUBLISHED" },
-      select: { slug: true, updatedAt: true },
-    }),
-    prisma.blog.findMany({
-      where: { status: "PUBLISHED" },
-      select: { slug: true, updatedAt: true },
-    }),
-    prisma.brand.findMany({
-      where: { status: "PUBLISHED" },
-      select: { slug: true, updatedAt: true },
-    }),
-  ]);
+  let vehicles: any[] = [], news: any[] = [], blogs: any[] = [], brands: any[] = [];
+  try {
+    [vehicles, news, blogs, brands] = await Promise.all([
+      prisma.vehicle.findMany({
+        where: { status: "PUBLISHED" },
+        select: { slug: true, type: true, brand: { select: { slug: true } }, updatedAt: true, isPopular: true },
+      }),
+      prisma.news.findMany({
+        where: { status: "PUBLISHED" },
+        select: { slug: true, updatedAt: true },
+      }),
+      prisma.blog.findMany({
+        where: { status: "PUBLISHED" },
+        select: { slug: true, updatedAt: true },
+      }),
+      prisma.brand.findMany({
+        where: { status: "PUBLISHED" },
+        select: { slug: true, updatedAt: true },
+      }),
+    ]);
+  } catch {
+    // DB unavailable at build time; sitemap will regenerate on first request
+  }
 
   const staticPages: MetadataRoute.Sitemap = [
     { url: SITE_URL, lastModified: new Date(), changeFrequency: "daily", priority: 1 },

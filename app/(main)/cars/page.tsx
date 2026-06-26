@@ -10,6 +10,7 @@ import {
   BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import Link from "next/link";
+import PageTopBanner from "@/components/home/PageTopBanner";
 
 const BODY_QUICK = [
   { label: "SUV",       href: "/cars?bodyType=SUV"      },
@@ -44,6 +45,7 @@ export default function CarsPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
+      <PageTopBanner position="cars_top" />
 
       {/* Hero strip */}
       <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-blue-900 text-white py-8">

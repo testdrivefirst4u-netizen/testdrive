@@ -1,20 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
+import prisma from "@/lib/prisma";
+import { assignDealer } from "@/lib/assign-dealer";
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { name, phone, city, vehicleName, vehicleSlug, brandName, source, intent } = body;
+    const { name, phone, city, vehicleName, brandName, brandId, source, intent } = body;
 
     if (!name || !phone || !vehicleName) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    // Log the lead (in production: store to DB, forward to CRM, or send notification)
-    console.log("[COMPARE LEAD]", {
-      name, phone, city, vehicleName, vehicleSlug, brandName,
-      source: source || "compare",
-      intent: intent || "get_quote",
-      timestamp: new Date().toISOString(),
+    const dealerId = await assignDealer(brandId);
+
+    const notesArr: string[] = [];
+    if (brandName) notesArr.push(`Brand: ${brandName}`);
+    if (intent)    notesArr.push(`Intent: ${intent}`);
+
+    await prisma.lead.create({
+      data: {
+        name:        name.trim(),
+        mobile:      String(phone).trim(),
+        city:        city        || null,
+        vehicleName: vehicleName,
+        brandId:     brandId     || null,
+        dealerId:    dealerId    || null,
+        source:      source      || "compare",
+        notes:       notesArr.length ? notesArr.join(" | ") : null,
+        status:      "new",
+      },
     });
 
     return NextResponse.json({ success: true });

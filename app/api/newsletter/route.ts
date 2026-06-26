@@ -1,31 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  if (!rateLimit(`newsletter:${ip}`, 5, 60 * 60 * 1000)) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+  const body = await req.json().catch(() => null);
+  const email  = (body?.email  ?? "").trim().toLowerCase();
+  const name   = (body?.name   ?? "").trim();
+  const source = (body?.source ?? "website").trim();
+
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return NextResponse.json({ error: "Valid email is required" }, { status: 400 });
+  }
+
   try {
-    const body = await req.json();
-    const { email } = body;
-
-    if (!email || !email.includes("@")) {
-      return NextResponse.json({ error: "Valid email is required." }, { status: 400 });
-    }
-
-    // Store as a lead with newsletter source
-    await prisma.lead.create({
-      data: {
-        name: "Newsletter Subscriber",
-        mobile: "0000000000",
-        email,
-        source: "newsletter",
-        vehicleName: "Newsletter",
-        status: "new",
-      },
+    await prisma.newsletterSubscriber.upsert({
+      where: { email },
+      update: { status: "active", name: name || undefined, unsubscribedAt: null },
+      create: { email, name: name || null, source, status: "active" },
     });
-
-    return NextResponse.json({ success: true });
-  } catch (e) {
-    console.error("[NEWSLETTER API]", e);
-    // Don't expose DB errors to the client — still return success to avoid leaking info
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ ok: true });
+  } catch {
+    return NextResponse.json({ error: "Subscription failed" }, { status: 500 });
   }
 }

@@ -166,7 +166,7 @@ export function RichTextEditor({ value, onChange, placeholder = "Start writingâ€
   return (
     <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm bg-white">
       {/* Bubble Menu (appears on text selection) */}
-      <BubbleMenu editor={editor} tippyOptions={{ duration: 150 }} className="flex items-center gap-0.5 bg-gray-900 text-white rounded-lg shadow-xl p-1 border border-gray-700">
+      <BubbleMenu editor={editor} className="flex items-center gap-0.5 bg-gray-900 text-white rounded-lg shadow-xl p-1 border border-gray-700">
         <ToolbarButton onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive("bold")} title="Bold" className="hover:bg-gray-700 text-white">
           <Bold className="w-3.5 h-3.5" />
         </ToolbarButton>

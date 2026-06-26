@@ -9,14 +9,18 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const { id } = await params;
     const body = await req.json();
-    const { title, subtitle, imageUrl, fileId, linkUrl, linkLabel, position, isActive, sortOrder } = body;
+    const { title, subtitle, imageUrl, fileId, linkUrl, linkLabel, position, isActive, sortOrder, startsAt, endsAt } = body;
 
-    const banner = await prisma.banner.update({
+    const banner = await (prisma.banner.update as any)({
       where: { id },
-      data: { title, subtitle, imageUrl, fileId, linkUrl, linkLabel, position, isActive, sortOrder },
+      data: {
+        title, subtitle, imageUrl, fileId, linkUrl, linkLabel, position, isActive, sortOrder,
+        startsAt: startsAt ? new Date(startsAt) : null,
+        endsAt:   endsAt   ? new Date(endsAt)   : null,
+      },
     });
     return NextResponse.json(banner);
-  } catch (e) {
+  } catch {
     return NextResponse.json({ error: "Failed to update banner" }, { status: 500 });
   }
 }
@@ -29,7 +33,7 @@ export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id:
     const { id } = await params;
     await prisma.banner.delete({ where: { id } });
     return NextResponse.json({ success: true });
-  } catch (e) {
+  } catch {
     return NextResponse.json({ error: "Failed to delete banner" }, { status: 500 });
   }
 }

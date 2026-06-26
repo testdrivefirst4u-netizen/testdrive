@@ -78,6 +78,11 @@ function LoginForm() {
         {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
         Sign In
       </Button>
+      <div className="text-center">
+        <a href="/admin/forgot-password" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
+          Forgot password?
+        </a>
+      </div>
     </form>
   );
 }

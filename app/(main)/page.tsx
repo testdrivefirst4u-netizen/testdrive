@@ -10,6 +10,11 @@ import { StatsSection } from "@/components/stats-section";
 import { TestimonialsSection } from "@/components/testimonials-section";
 import { NewsSection } from "@/components/news-section";
 import { buildMetadata } from "@/lib/seo";
+import HeroBannerSlider from "@/components/home/HeroBanners";
+import PromoStrip from "@/components/home/PromoStrip";
+import prisma from "@/lib/prisma";
+
+export const revalidate = 60;
 
 /* ── SEO ────────────────────────────────────────────── */
 export const metadata: Metadata = buildMetadata({
@@ -114,13 +119,49 @@ const webSiteJsonLd = {
 };
 
 /* ── Page ───────────────────────────────────────────── */
-export default function HomePage() {
+export default async function HomePage() {
+  let heroBanners: any[] = [], promoBanners: any[] = [];
+  let slideBgs: Record<string, string> = {};
+  try {
+    const [h, p, bgs] = await Promise.all([
+      prisma.banner.findMany({
+        where: { position: "hero", isActive: true },
+        orderBy: { sortOrder: "asc" },
+        select: { id: true, title: true, subtitle: true, imageUrl: true, linkUrl: true, linkLabel: true, sortOrder: true },
+      }),
+      prisma.banner.findMany({
+        where: { position: "promo", isActive: true },
+        orderBy: { sortOrder: "asc" },
+        select: { id: true, title: true, subtitle: true, imageUrl: true, linkUrl: true, linkLabel: true, sortOrder: true },
+      }),
+      prisma.banner.findMany({
+        where: {
+          position: { in: ["hero_bg_car", "hero_bg_bike", "hero_bg_ev", "hero_bg_commercial"] },
+          isActive: true,
+        },
+        orderBy: { sortOrder: "asc" },
+        select: { position: true, imageUrl: true },
+      }),
+    ]);
+    heroBanners = h;
+    promoBanners = p;
+    // Map position → imageUrl; keep first active banner per position
+    for (const b of bgs) {
+      const cat = b.position.replace("hero_bg_", "").toUpperCase();
+      if (!slideBgs[cat]) slideBgs[cat] = b.imageUrl;
+    }
+  } catch {
+    // DB unavailable at build time; banners shown after first ISR revalidation
+  }
+
   return (
     <div className="bg-white">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify([organizationJsonLd, webSiteJsonLd]) }} />
       {/* Hero */}
-      <Hero />
+      <Hero slideBgs={slideBgs} />
+      {heroBanners.length > 0 && <HeroBannerSlider banners={heroBanners} />}
       <CategoryNav />
+      {promoBanners.length > 0 && <PromoStrip banners={promoBanners} />}
 
       {/* Popular Brands */}
       <Suspense fallback={<BrandSkeleton />}>

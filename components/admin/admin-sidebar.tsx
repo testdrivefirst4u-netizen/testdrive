@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Tag, Car, List, Settings2, Zap, Newspaper,
   BookOpen, HelpCircle, Users, Image, BrainCircuit, Settings,
   Globe, ChevronDown, ChevronRight, MonitorPlay,
-  ExternalLink, ShieldCheck, Inbox,
+  ExternalLink, ShieldCheck, Inbox, Building2, Mail,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -35,6 +35,8 @@ const nav = [
     ],
   },
   { label: "Leads",        href: "/admin/leads",      icon: Inbox       },
+  { label: "Newsletter",   href: "/admin/newsletter", icon: Mail        },
+  { label: "Dealers",      href: "/admin/dealers",    icon: Building2   },
   { label: "Banners",      href: "/admin/banners",    icon: MonitorPlay },
   { label: "Media Library",href: "/admin/media",      icon: Image       },
   { label: "Users",        href: "/admin/users",      icon: Users       },
@@ -89,6 +91,7 @@ export function AdminSidebar({ user, permissions = [], newLeadsCount = 0 }: Prop
       <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto no-scrollbar">
         {nav.map((item) => {
           if (!item.children) {
+            if (!canSee(item.href!)) return null;
             const active = pathname === item.href || pathname.startsWith(item.href + "/");
             return (
               <Link key={item.label} href={item.href!}
@@ -109,8 +112,11 @@ export function AdminSidebar({ user, permissions = [], newLeadsCount = 0 }: Prop
             );
           }
 
-          const isOpen = open.includes(item.label);
-          const anyActive = item.children.some((c) => pathname.startsWith(c.href));
+          const visibleChildren = item.children.filter((c) => canSee(c.href));
+          if (visibleChildren.length === 0) return null;
+
+          const isOpen    = open.includes(item.label);
+          const anyActive = visibleChildren.some((c) => pathname.startsWith(c.href));
 
           return (
             <div key={item.label}>
@@ -129,7 +135,7 @@ export function AdminSidebar({ user, permissions = [], newLeadsCount = 0 }: Prop
 
               {isOpen && (
                 <div className="ml-3.5 mt-0.5 space-y-0.5 border-l border-white/10 pl-3">
-                  {item.children.map((child) => {
+                  {visibleChildren.map((child) => {
                     const active = pathname.startsWith(child.href);
                     return (
                       <Link key={child.href} href={child.href}

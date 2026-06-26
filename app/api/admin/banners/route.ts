@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
       orderBy: [{ position: "asc" }, { sortOrder: "asc" }],
     });
     return NextResponse.json({ banners });
-  } catch (e) {
+  } catch {
     return NextResponse.json({ error: "Failed to fetch banners" }, { status: 500 });
   }
 }
@@ -25,23 +25,25 @@ export async function POST(req: NextRequest) {
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
-    const { title, subtitle, imageUrl, fileId, linkUrl, linkLabel, position, isActive, sortOrder } = body;
+    const { title, subtitle, imageUrl, fileId, linkUrl, linkLabel, position, isActive, sortOrder, startsAt, endsAt } = body;
 
     if (!title || !imageUrl) {
       return NextResponse.json({ error: "Title and image are required" }, { status: 400 });
     }
 
-    const banner = await prisma.banner.create({
+    const banner = await (prisma.banner.create as any)({
       data: {
         title,
-        subtitle: subtitle || null,
+        subtitle:  subtitle  || null,
         imageUrl,
-        fileId: fileId || null,
-        linkUrl: linkUrl || null,
+        fileId:    fileId    || null,
+        linkUrl:   linkUrl   || null,
         linkLabel: linkLabel || null,
-        position: position || "hero",
-        isActive: isActive !== false,
+        position:  position  || "hero",
+        isActive:  isActive !== false,
         sortOrder: sortOrder || 0,
+        startsAt:  startsAt  ? new Date(startsAt) : null,
+        endsAt:    endsAt    ? new Date(endsAt)   : null,
       },
     });
     return NextResponse.json(banner, { status: 201 });

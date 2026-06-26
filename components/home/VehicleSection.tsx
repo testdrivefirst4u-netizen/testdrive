@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { ChevronRight } from "lucide-react";
 import prisma from "@/lib/prisma";
 import { VehicleSlider, type SliderVehicle } from "./VehicleSlider";
@@ -14,6 +15,7 @@ interface VehicleSectionProps {
   limit?: number;
   bgClass?: string;
   dark?: boolean;
+  bgImageUrl?: string;
 }
 
 async function fetchVehicles(
@@ -74,17 +76,31 @@ export async function VehicleSection({
   limit = 14,
   bgClass = "bg-white",
   dark = false,
+  bgImageUrl,
 }: VehicleSectionProps) {
   const vehicles = await fetchVehicles(type, filter, orderByPopular, limit);
   if (vehicles.length === 0) return null;
 
-  const headingColor = dark ? "text-white" : "text-slate-900";
-  const subtitleColor = dark ? "text-blue-300" : "text-blue-700";
-  const linkColor = dark ? "text-blue-300 hover:text-white" : "text-blue-700 hover:text-blue-800";
+  const isDark = dark || !!bgImageUrl;
+  const headingColor = isDark ? "text-white" : "text-slate-900";
+  const subtitleColor = isDark ? "text-blue-300" : "text-blue-700";
+  const linkColor = isDark ? "text-blue-300 hover:text-white" : "text-blue-700 hover:text-blue-800";
 
   return (
-    <section className={`py-10 ${bgClass}`}>
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6">
+    <section className={`py-10 relative overflow-hidden ${bgImageUrl ? "" : bgClass}`}>
+      {bgImageUrl && (
+        <>
+          <Image
+            src={bgImageUrl}
+            alt=""
+            fill
+            className="object-cover"
+            sizes="100vw"
+          />
+          <div className="absolute inset-0 bg-black/65" />
+        </>
+      )}
+      <div className="relative z-10 max-w-[1400px] mx-auto px-4 sm:px-6">
         <div className="flex items-end justify-between mb-6">
           <div>
             {subtitle && (

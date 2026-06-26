@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { SmartSearch, type SearchCategory } from "@/components/smart-search";
@@ -196,7 +197,7 @@ const HEADLINE_ACCENT: Record<SearchCategory, string> = {
 
 /* -- Main Component ---------------------------------------- */
 
-export function Hero() {
+export function Hero({ slideBgs = {} }: { slideBgs?: Record<string, string> }) {
   const [activeIdx, setActiveIdx]       = useState(0);
   const [activeCategory, setActiveCat] = useState<SearchCategory>("CAR");
   const [isPaused, setIsPaused]        = useState(false);
@@ -248,13 +249,20 @@ export function Hero() {
       <div className="absolute inset-0" aria-hidden>
         {SLIDES.map((slide, i) => {
           const BgIcon = slide.Icon;
+          const bgImg = slideBgs[slide.cat];
           return (
             <div
               key={slide.cat}
-              className={`absolute inset-0 bg-gradient-to-br ${slide.bg} transition-opacity duration-1000 ease-in-out ${
+              className={`absolute inset-0 ${bgImg ? "" : `bg-gradient-to-br ${slide.bg}`} transition-opacity duration-1000 ease-in-out ${
                 i === activeIdx ? "opacity-100" : "opacity-0"
               }`}
             >
+              {bgImg && (
+                <>
+                  <Image src={bgImg} alt="" fill className="object-cover" sizes="100vw" priority={i === 0} />
+                  <div className="absolute inset-0 bg-black/65" />
+                </>
+              )}
               <div className="absolute inset-0 bg-grid" />
               <div className={`absolute -top-40 left-[15%] w-[700px] h-[700px] bg-gradient-to-b ${slide.glow} rounded-full blur-3xl`} />
               <div className={`absolute bottom-0 right-0 w-[500px] h-[400px] bg-gradient-to-tl ${slide.glow} rounded-full blur-3xl translate-y-1/3`} />

@@ -4,7 +4,22 @@ import prisma from "@/lib/prisma";
 import { VehicleDetailPage } from "@/components/vehicle-detail-page";
 import { buildMetadata } from "@/lib/seo";
 
+export const revalidate = 3600;
+
 interface Props { params: Promise<{ brand: string; model: string }> }
+
+export async function generateStaticParams() {
+  try {
+    const vehicles = await prisma.vehicle.findMany({
+      where: { status: "PUBLISHED", type: { in: ["BIKE", "SCOOTER"] } },
+      select: { slug: true, brand: { select: { slug: true } } },
+      take: 500,
+    });
+    return vehicles.map((v) => ({ brand: v.brand.slug, model: v.slug }));
+  } catch {
+    return [];
+  }
+}
 
 async function getVehicle(brand: string, model: string) {
   return prisma.vehicle.findFirst({

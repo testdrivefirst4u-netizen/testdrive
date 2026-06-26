@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Bike, Zap, TrendingUp, Shield } from "lucide-react";
 import Link from "next/link";
+import PageTopBanner from "@/components/home/PageTopBanner";
 
 const QUICK_FILTERS = [
   { label: "All Bikes",   types: ["BIKE", "SCOOTER"] },
@@ -38,6 +39,7 @@ export default function BikesPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
+      <PageTopBanner position="bikes_top" />
 
       {/* Hero Banner */}
       <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-blue-900 text-white py-10">

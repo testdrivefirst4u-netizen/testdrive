@@ -9,6 +9,7 @@ import {
   BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Zap, Battery, IndianRupee, Leaf } from "lucide-react";
+import PageTopBanner from "@/components/home/PageTopBanner";
 
 const EV_HIGHLIGHTS = [
   { icon: Zap,        label: "Fast Charging",    desc: "DC fast charge in under 1 hr",    color: "text-teal-700 bg-teal-50"    },
@@ -30,6 +31,7 @@ export default function EvPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
+      <PageTopBanner position="ev_top" />
 
       {/* Hero */}
       <div className="bg-gradient-to-r from-teal-950 via-blue-950 to-blue-900 text-white py-10">

@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
   ChevronLeft, Phone, Mail, MapPin, Car, Clock,
-  Calendar, MessageSquare, User, Tag,
+  Calendar, MessageSquare, User, Tag, UserCheck,
 } from "lucide-react";
 import prisma from "@/lib/prisma";
 import { LeadDetailClient } from "./lead-detail-client";
@@ -14,6 +14,7 @@ const SOURCE_LABELS: Record<string, { label: string; color: string }> = {
   test_drive:   { label: "Test Drive",    color: "bg-purple-50 text-purple-700 border-purple-200"},
   newsletter:   { label: "Newsletter",    color: "bg-teal-50 text-teal-700 border-teal-200"     },
   offer_popup:  { label: "Offer Popup",   color: "bg-orange-50 text-orange-700 border-orange-200"},
+  compare:      { label: "Compare",       color: "bg-pink-50 text-pink-700 border-pink-200"     },
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -33,8 +34,25 @@ function timeAgo(date: Date) {
 
 export default async function LeadDetailPage({ params }: Props) {
   const { id } = await params;
-  const lead = await prisma.lead.findUnique({ where: { id } }).catch(() => null);
+
+  const lead = await prisma.lead.findUnique({
+    where: { id },
+    include: {
+      brand:  { select: { id: true, name: true } },
+      dealer: { select: { id: true, name: true } },
+    },
+  }).catch(() => null);
+
   if (!lead) notFound();
+
+  // Load dealers for this brand so admin can reassign
+  const dealers = lead.brandId
+    ? await prisma.dealer.findMany({
+        where:   { brandId: lead.brandId },
+        select:  { id: true, name: true },
+        orderBy: { priority: "asc" },
+      })
+    : [];
 
   const src = SOURCE_LABELS[lead.source] ?? { label: lead.source, color: "bg-gray-100 text-gray-600 border-gray-200" };
   const statusColor = STATUS_COLORS[lead.status] ?? "bg-gray-100 text-gray-600 border-gray-200";
@@ -51,9 +69,9 @@ export default async function LeadDetailPage({ params }: Props) {
   ].filter((f) => f.value);
 
   return (
-    <div className="space-y-5 max-w-3xl">
+    <div className="space-y-5 max-w-4xl">
 
-      {/* Header */}
+      {/* Breadcrumb */}
       <div className="flex items-center gap-3">
         <Link href="/admin/leads"
           className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-blue-600 transition-colors">
@@ -71,9 +89,19 @@ export default async function LeadDetailPage({ params }: Props) {
             &nbsp;·&nbsp;{new Date(lead.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className={`text-xs font-bold px-3 py-1 rounded-full border ${src.color}`}>{src.label}</span>
           <span className={`text-xs font-bold px-3 py-1 rounded-full border capitalize ${statusColor}`}>{lead.status}</span>
+          {lead.brand && (
+            <span className="text-xs font-bold px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
+              {lead.brand.name}
+            </span>
+          )}
+          {lead.dealer && (
+            <span className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center gap-1">
+              <UserCheck className="w-3 h-3" /> {lead.dealer.name}
+            </span>
+          )}
         </div>
       </div>
 
@@ -119,20 +147,13 @@ export default async function LeadDetailPage({ params }: Props) {
           </div>
         </div>
 
-        {/* Status + Notes */}
-        <LeadDetailClient lead={{ id: lead.id, status: lead.status, notes: lead.notes ?? "" }} statusColors={STATUS_COLORS} />
+        {/* Status + Notes + Reassign + Activity */}
+        <LeadDetailClient
+          lead={{ id: lead.id, status: lead.status, notes: lead.notes ?? "", dealerId: lead.dealerId }}
+          statusColors={STATUS_COLORS}
+          dealers={dealers}
+        />
       </div>
-
-      {/* Notes history */}
-      {lead.notes && (
-        <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
-          <div className="flex items-center gap-2 mb-3">
-            <MessageSquare className="w-4 h-4 text-blue-600" />
-            <h2 className="font-bold text-gray-900 text-sm">Existing Notes</h2>
-          </div>
-          <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap bg-slate-50 rounded-xl p-4">{lead.notes}</p>
-        </div>
-      )}
     </div>
   );
 }

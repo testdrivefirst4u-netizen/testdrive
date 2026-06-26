@@ -23,7 +23,11 @@ export default async function ProtectedAdminLayout({
 
   return (
     <div className="flex h-screen bg-gray-100">
-      <AdminSidebar user={session.user as any} newLeadsCount={newLeadsCount} />
+      <AdminSidebar
+        user={session.user as any}
+        permissions={(session.user as any).permissions ?? []}
+        newLeadsCount={newLeadsCount}
+      />
       <div className="flex flex-col flex-1 overflow-hidden">
         <AdminHeader user={session.user as any} />
         <main className="flex-1 overflow-y-auto p-6">{children}</main>

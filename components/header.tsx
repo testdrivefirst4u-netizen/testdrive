@@ -6,8 +6,8 @@ import { usePathname } from "next/navigation";
 import {
   Menu, X, ChevronDown, ChevronRight,
   Car, Bike, Zap, Truck, Newspaper, Star, ArrowLeftRight,
-  Calculator, Shield, MapPin, LogIn, Phone, PlugZap,
-  Flame, TrendingUp, Clock, Headphones, User, Bookmark, Bell,
+  Calculator, Shield, MapPin, Phone, PlugZap,
+  Flame, TrendingUp, Clock, Headphones, Bookmark, Bell,
 } from "lucide-react";
 import { SearchDropdown } from "@/components/search-dropdown";
 
@@ -300,13 +300,6 @@ export function Header() {
                 <Bookmark className="w-4 h-4" />
               </button>
 
-              {/* Login — sm+ */}
-              <Link href="/login"
-                className="hidden sm:flex items-center gap-1.5 h-9 px-3 rounded-xl border border-gray-200 text-slate-700 hover:border-blue-300 hover:text-blue-700 hover:bg-blue-50 text-xs sm:text-sm font-semibold transition-all whitespace-nowrap">
-                <User className="w-3.5 h-3.5" />
-                <span className="hidden md:inline">Login</span>
-              </Link>
-
               {/* Book Test Drive — lg+ */}
               <Link href="/test-drive"
                 className="hidden lg:flex items-center gap-1.5 h-9 px-3.5 xl:px-4 rounded-xl bg-blue-700 hover:bg-blue-600 text-white text-xs font-bold transition-all hover:shadow-lg hover:shadow-blue-500/30 whitespace-nowrap">
@@ -398,22 +391,6 @@ export function Header() {
               >
                 Book Test Drive
               </Link>
-              <div className="grid grid-cols-2 gap-2">
-                <Link
-                  href="/login"
-                  onClick={() => setMobileOpen(false)}
-                  className="flex items-center justify-center gap-1.5 h-10 border border-gray-200 hover:border-blue-300 text-slate-700 hover:text-blue-700 font-semibold text-sm rounded-xl transition-all"
-                >
-                  <LogIn className="w-3.5 h-3.5" /> Login
-                </Link>
-                <Link
-                  href="/register"
-                  onClick={() => setMobileOpen(false)}
-                  className="flex items-center justify-center gap-1.5 h-10 border border-gray-200 hover:border-blue-300 text-slate-700 hover:text-blue-700 font-semibold text-sm rounded-xl transition-all"
-                >
-                  <User className="w-3.5 h-3.5" /> Register
-                </Link>
-              </div>
               <a
                 href="tel:+911800123456"
                 className="flex items-center justify-center gap-2 text-xs text-slate-500 hover:text-blue-700 transition-colors pt-1"

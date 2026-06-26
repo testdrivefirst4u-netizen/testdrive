@@ -13,6 +13,16 @@ enum Role {
   ADMIN
   EDITOR
   USER
+  DEALER_ADMIN
+  SALES_EXECUTIVE
+}
+
+enum DealerStatus {
+  ACTIVE
+  INACTIVE
+  VACATION
+  MAINTENANCE
+  CLOSED
 }
 
 enum VehicleType {
@@ -37,11 +47,19 @@ model User {
   role        Role     @default(USER)
   image       String?
   permissions String[] @default([])
+  phone       String?
+  isActive    Boolean  @default(true)
+  lastLogin   DateTime?
+  // CRM: which dealer this user belongs to (DEALER_ADMIN or SALES_EXECUTIVE)
+  dealerId    String?  @db.ObjectId
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  accounts Account[]
-  sessions Session[]
+  accounts    Account[]
+  sessions    Session[]
+  dealer      Dealer?  @relation("DealerStaff", fields: [dealerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  adminDealer Dealer?  @relation("DealerAdmin")
+  assignedLeads CrmLead[] @relation("LeadExecutive")
 
   @@map("users")
 }
@@ -102,8 +120,12 @@ model Brand {
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
-  vehicles Vehicle[]
-  seo      Seo?
+  vehicles        Vehicle[]
+  seo             Seo?
+  leads           Lead[]              @relation("LeadBrand")
+  dealers         Dealer[]            @relation("DealerBrand")
+  crmLeads        CrmLead[]           @relation("CrmLeadBrand")
+  assignmentRule  CrmAssignmentRule?  @relation("BrandAssignmentRule")
 
   @@map("brands")
 }
@@ -464,18 +486,20 @@ model Setting {
 }
 
 model Banner {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
   title     String
   subtitle  String?
   imageUrl  String
   fileId    String?
   linkUrl   String?
   linkLabel String?
-  position  String   @default("hero")
-  isActive  Boolean  @default(true)
-  sortOrder Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  position  String    @default("hero")
+  isActive  Boolean   @default(true)
+  sortOrder Int       @default(0)
+  startsAt  DateTime?
+  endsAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   @@map("banners")
 }
@@ -493,8 +517,284 @@ model Lead {
   source      String   @default("offer_popup")
   status      String   @default("new")
   notes       String?
+  brandId     String?  @db.ObjectId
+  dealerId    String?  @db.ObjectId
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  brand      Brand?         @relation("LeadBrand",  fields: [brandId],  references: [id], onDelete: NoAction, onUpdate: NoAction)
+  dealer     Dealer?        @relation("LeadDealer", fields: [dealerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  activities LeadActivity[]
+
   @@map("leads")
+}
+
+model LeadActivity {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  leadId    String   @db.ObjectId
+  userId    String?
+  userName  String?
+  type      String
+  content   String
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@map("lead_activities")
+}
+
+model AuditLog {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String?
+  userName  String?
+  action    String
+  entity    String
+  entityId  String?
+  changes   Json?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  @@map("audit_logs")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("password_reset_tokens")
+}
+
+// ─── CRM: Dealer Management ─────────────────────────────────────────────────
+
+model Dealer {
+  id              String       @id @default(auto()) @map("_id") @db.ObjectId
+  name            String
+  code            String       @unique
+  brandId         String       @db.ObjectId
+  email           String
+  phone           String
+  managerName     String?
+  managerPhone    String?
+  address         String?
+  city            String
+  state           String
+  pincodes        String[]
+  status          DealerStatus @default(ACTIVE)
+  priority        Int          @default(1)
+  weight          Int          @default(1)
+  maxLeadsPerDay  Int          @default(50)
+  autoAssign      Boolean      @default(true)
+  isAvailable     Boolean      @default(true)
+  todayLeadCount  Int          @default(0)
+  lastCountReset  DateTime     @default(now())
+  lastAssignedAt  DateTime?
+  adminUserId     String?      @unique @db.ObjectId
+  businessHours   Json?
+  logo            String?
+  assignedVehicles String[]
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  brand     Brand      @relation("DealerBrand", fields: [brandId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  adminUser User?      @relation("DealerAdmin", fields: [adminUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  staff     User[]     @relation("DealerStaff")
+  leads     Lead[]     @relation("LeadDealer")
+  crmLeads  CrmLead[]
+  followUps CrmFollowUp[]
+  testDrives CrmTestDrive[]
+
+  @@map("dealers")
+}
+
+// ─── CRM: Leads (separate from basic website Lead) ──────────────────────────
+
+model CrmLead {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  customerName     String
+  mobile           String
+  email            String?
+  city             String?
+  state            String?
+  pincode          String?
+  budget           Float?
+  remarks          String?
+  consent          Boolean  @default(false)
+
+  // Vehicle interest
+  brandId          String?  @db.ObjectId
+  vehicle          String?
+  variant          String?
+  fuelType         String?
+  transmission     String?
+
+  // Assignment
+  dealerId         String?  @db.ObjectId
+  executiveId      String?  @db.ObjectId
+  assignedAt       DateTime?
+  openedAt         DateTime?
+  reassignTimer    DateTime?
+  assignmentAttempts Int    @default(0)
+
+  // Source & tracking
+  source           String   @default("website")
+  status           String   @default("new")
+  priority         String   @default("medium")
+
+  // Duplicate detection
+  isDuplicate      Boolean  @default(false)
+  duplicateOfId    String?  @db.ObjectId
+
+  // Activity (stored as JSON arrays)
+  history          Json?
+  leadNotes        Json?
+  tags             String[]
+
+  // UTM
+  utmSource        String?
+  utmMedium        String?
+  utmCampaign      String?
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  brand     Brand?   @relation("CrmLeadBrand", fields: [brandId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  dealer    Dealer?  @relation(fields: [dealerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  executive User?    @relation("LeadExecutive", fields: [executiveId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  followUps  CrmFollowUp[]
+  testDrives CrmTestDrive[]
+  bookings   CrmBooking[]
+
+  @@map("crm_leads")
+}
+
+// ─── CRM: Assignment Rules ───────────────────────────────────────────────────
+
+model CrmAssignmentRule {
+  id                   String  @id @default(auto()) @map("_id") @db.ObjectId
+  brandId              String  @unique @db.ObjectId
+  strategy             String  @default("round_robin")
+  lastAssignedIndex    Int     @default(-1)
+  lastAssignedDealerId String? @db.ObjectId
+  autoReassignEnabled  Boolean @default(true)
+  reassignAfterMinutes Int     @default(30)
+  afterHoursAction     String  @default("queue")
+  dealer24x7Id         String? @db.ObjectId
+  pincodeMap           Json?
+  cityMap              Json?
+  vehicleMap           Json?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  brand Brand @relation("BrandAssignmentRule", fields: [brandId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@map("crm_assignment_rules")
+}
+
+// ─── CRM: Follow-ups ────────────────────────────────────────────────────────
+
+model CrmFollowUp {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  leadId      String   @db.ObjectId
+  dealerId    String   @db.ObjectId
+  executiveId String?  @db.ObjectId
+  scheduledAt DateTime
+  type        String   @default("call")
+  note        String?
+  status      String   @default("pending")
+  outcome     String?
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  lead   CrmLead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  dealer Dealer  @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+
+  @@map("crm_follow_ups")
+}
+
+// ─── CRM: Test Drives ───────────────────────────────────────────────────────
+
+model CrmTestDrive {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  leadId      String   @db.ObjectId
+  dealerId    String   @db.ObjectId
+  vehicle     String
+  variant     String?
+  scheduledAt DateTime
+  status      String   @default("scheduled")
+  feedback    String?
+  rating      Int?
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  lead   CrmLead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  dealer Dealer  @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+
+  @@map("crm_test_drives")
+}
+
+// ─── CRM: Bookings ──────────────────────────────────────────────────────────
+
+model CrmBooking {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  leadId           String   @db.ObjectId
+  bookingNumber    String   @unique
+  vehicle          String
+  variant          String?
+  color            String?
+  bookingAmount    Float?
+  vehiclePrice     Float?
+  financeRequired  Boolean  @default(false)
+  financeAmount    Float?
+  insuranceAmount  Float?
+  accessoriesAmount Float?
+  expectedDelivery DateTime?
+  actualDelivery   DateTime?
+  status           String   @default("pending")
+  invoiceNumber    String?
+  notes            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  lead CrmLead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@map("crm_bookings")
+}
+
+// ─── CRM: Audit Log ─────────────────────────────────────────────────────────
+
+model CrmAuditLog {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  action     String
+  entity     String?
+  entityId   String?  @db.ObjectId
+  doneById   String?  @db.ObjectId
+  doneByRole String?
+  ip         String?
+  userAgent  String?
+  changes    Json?
+  dealerId   String?  @db.ObjectId
+  brandId    String?  @db.ObjectId
+  createdAt  DateTime @default(now())
+
+  @@map("crm_audit_logs")
+}
+
+model NewsletterSubscriber {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  email       String   @unique
+  name        String?
+  source      String?  @default("website")
+  status      String   @default("active")  // active | unsubscribed
+  tags        String[] @default([])
+  subscribedAt DateTime @default(now())
+  unsubscribedAt DateTime?
+
+  @@map("newsletter_subscribers")
 }
