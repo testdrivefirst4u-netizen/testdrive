@@ -1,6 +1,6 @@
 "use client";
 import { useState, useTransition } from "react";
-import { Search, Trash2, UserCheck, UserX, Mail } from "lucide-react";
+import { Search, Trash2, UserCheck, UserX, Mail, Download } from "lucide-react";
 
 interface Subscriber {
   id: string;
@@ -17,6 +17,24 @@ export default function NewsletterClient({ subscribers: initial }: { subscribers
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "active" | "unsubscribed">("all");
   const [isPending, startTransition] = useTransition();
+  const [isExporting, setIsExporting] = useState(false);
+
+  async function handleExport() {
+    setIsExporting(true);
+    try {
+      const res = await fetch("/api/admin/newsletter/export");
+      if (!res.ok) throw new Error("Export failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `subscribers-${new Date().toISOString().split("T")[0]}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setIsExporting(false);
+    }
+  }
 
   const filtered = subscribers.filter((s) => {
     const matchSearch =
@@ -68,6 +86,14 @@ export default function NewsletterClient({ subscribers: initial }: { subscribers
           ))}
         </div>
         <p className="text-xs text-gray-400">{filtered.length} subscribers</p>
+        <button
+          onClick={handleExport}
+          disabled={isExporting}
+          className="flex items-center gap-2 h-9 px-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-xl transition-colors shrink-0"
+        >
+          <Download className="w-3.5 h-3.5" />
+          {isExporting ? "Exporting…" : "Export CSV"}
+        </button>
       </div>
 
       {/* Table */}

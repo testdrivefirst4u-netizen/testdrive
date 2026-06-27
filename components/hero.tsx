@@ -420,7 +420,7 @@ export function Hero({ slideBgs = {} }: { slideBgs?: Record<string, string> }) {
           </div>
 
           {/* Right column - showcase */}
-          <div className="hidden lg:block relative">
+          {/* <div className="hidden lg:block relative">
             {SLIDES.map((slide, i) => {
               const ShowcaseIcon = slide.Icon;
               const isActive = i === activeIdx;
@@ -434,7 +434,7 @@ export function Hero({ slideBgs = {} }: { slideBgs?: Record<string, string> }) {
                   }`}
                 >
                   <div className="glass-dark rounded-3xl p-5 shadow-2xl">
-                    {/* Icon area */}
+                
                     <div className="relative h-44 flex items-center justify-center mb-4 rounded-2xl overflow-hidden bg-white/[0.02]">
                       <div className={`absolute inset-0 bg-gradient-to-b ${slide.glow} opacity-60`} />
                       <div className="absolute w-40 h-40 border border-white/[0.07] rounded-full animate-spin-slow" />
@@ -450,7 +450,7 @@ export function Hero({ slideBgs = {} }: { slideBgs?: Record<string, string> }) {
                       </div>
                     </div>
 
-                    {/* Trending list */}
+                   
                     <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">
                       Trending this week
                     </p>
@@ -471,7 +471,7 @@ export function Hero({ slideBgs = {} }: { slideBgs?: Record<string, string> }) {
                       ))}
                     </div>
 
-                    {/* CTA */}
+                  
                     <Link
                       href={CATEGORY_DATA[slide.cat].path}
                       className="flex items-center justify-center gap-2 w-full bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm rounded-xl py-2.5 transition-all hover:shadow-lg hover:shadow-blue-500/30 active:scale-[0.98]"
@@ -481,7 +481,7 @@ export function Hero({ slideBgs = {} }: { slideBgs?: Record<string, string> }) {
                     </Link>
                   </div>
 
-                  {/* Floating rating pill */}
+              
                   <div className="absolute -top-3 -left-4 bg-white rounded-2xl px-3 py-2 shadow-xl shadow-black/20 flex items-center gap-2 border border-gray-100">
                     <div className="flex">
                       {[1, 2, 3, 4, 5].map((n) => (
@@ -496,7 +496,7 @@ export function Hero({ slideBgs = {} }: { slideBgs?: Record<string, string> }) {
                 </div>
               );
             })}
-          </div>
+          </div> */}
         </div>
       </div>
 

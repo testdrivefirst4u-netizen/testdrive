@@ -57,7 +57,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: seo?.metaTitle || `${vehicle.brand.name} ${vehicle.name} Price, Specs & Features`,
     description: seo?.metaDescription || vehicle.shortDescription || `${vehicle.brand.name} ${vehicle.name} - Check price, specifications, features, mileage, colours and variants. Get best deals.`,
     keywords: seo?.metaKeywords || `${vehicle.brand.name} ${vehicle.name}, ${vehicle.name} price, ${vehicle.name} specifications`,
-    ogImage: seo?.ogImage || vehicle.images[0]?.url,
+    ogImage: seo?.ogImage || vehicle.images[0]?.url || vehicle.featuredImage || undefined,
     canonicalPath: `/cars/${brand}/${model}`,
   });
 }

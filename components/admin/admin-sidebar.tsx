@@ -73,7 +73,7 @@ export function AdminSidebar({ user, permissions = [], newLeadsCount = 0 }: Prop
     : "A";
 
   return (
-    <aside className="w-64 bg-[#0c1524] text-white flex flex-col shrink-0 overflow-y-auto border-r border-white/5">
+    <aside className="w-64 bg-[#0c1524] text-white flex flex-col shrink-0 border-r border-white/5 h-screen">
       {/* Logo */}
       <div className="px-5 py-4 border-b border-white/5">
         <Link href="/admin/dashboard" className="flex items-center gap-2.5">
@@ -88,7 +88,7 @@ export function AdminSidebar({ user, permissions = [], newLeadsCount = 0 }: Prop
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto no-scrollbar">
+      <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto min-h-0 no-scrollbar">
         {nav.map((item) => {
           if (!item.children) {
             if (!canSee(item.href!)) return null;

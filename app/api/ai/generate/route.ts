@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import OpenAI from "openai";
+import Groq from "groq-sdk";
 import prisma from "@/lib/prisma";
 
-async function getOpenAIClient() {
-  const setting = await prisma.setting.findUnique({ where: { key: "openai_api_key" } });
-  const apiKey = setting?.value || process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error("OpenAI API key not configured. Add it in AI Settings.");
-  return new OpenAI({ apiKey });
+async function getGroqClient() {
+  const setting = await prisma.setting.findUnique({ where: { key: "groq_api_key" } });
+  const apiKey = setting?.value || process.env.GROQ_API_KEY;
+  if (!apiKey) throw new Error("Groq API key not configured. Add it in AI Settings.");
+  return new Groq({ apiKey });
 }
+
+const SYSTEM_PROMPT =
+  "You are an expert automotive content writer for an Indian car marketplace. Write accurate, professional content. Never hallucinate vehicle specifications. When asked for JSON arrays or objects, return only valid JSON with no markdown formatting.";
 
 const prompts: Record<string, (data: any) => string> = {
   description: (d) =>
@@ -82,6 +85,21 @@ Return ONLY a valid JSON object with this exact structure (use null for unknown 
     {"question":"Q4?","answer":"A4"},
     {"question":"Q5?","answer":"A5"}
   ],
+  "features": [
+    "Feature name (e.g. Sunroof)",
+    "Feature name (e.g. Apple CarPlay & Android Auto)",
+    "Feature name (e.g. Ventilated Front Seats)",
+    "Feature name (e.g. 360-Degree Camera)",
+    "Feature name (e.g. Wireless Charging)",
+    "Feature name (e.g. Automatic Climate Control)"
+  ],
+  "safety": [
+    "Safety feature (e.g. 6 Airbags)",
+    "Safety feature (e.g. ABS with EBD)",
+    "Safety feature (e.g. Electronic Stability Control)",
+    "Safety feature (e.g. Rear Parking Sensors)",
+    "Safety feature (e.g. ISOFIX Child Seat Mounts)"
+  ],
   "seo": {
     "metaTitle": "under 60 chars title for Google",
     "metaDescription": "under 160 chars description with CTA",
@@ -106,20 +124,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid field" }, { status: 400 });
     }
 
-    const client = await getOpenAIClient();
+    const client = await getGroqClient();
     const prompt = prompts[field](data);
 
     const completion = await client.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "llama-3.3-70b-versatile",
       messages: [
-        {
-          role: "system",
-          content: "You are an expert automotive content writer for an Indian car marketplace. Write accurate, professional content. Never hallucinate vehicle specifications. When asked for JSON arrays or objects, return only valid JSON with no markdown formatting.",
-        },
+        { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: prompt },
       ],
       temperature: 0.7,
-      max_tokens: field === "autofill" ? 2000 : 600,
+      max_tokens: field === "autofill" ? 4000 : 600,
+      ...(field === "autofill" ? { response_format: { type: "json_object" } } : {}),
     });
 
     const raw = completion.choices[0]?.message?.content?.trim() || "";
@@ -127,11 +143,19 @@ export async function POST(req: NextRequest) {
     const jsonFields = ["pros", "cons", "highlights", "faqs", "autofill"];
     if (jsonFields.includes(field)) {
       try {
-        const cleaned = raw.replace(/```json\n?|\n?```/g, "").trim();
-        const parsed = JSON.parse(cleaned);
+        // Strip code fences, then extract outermost JSON container
+        const stripped = raw.replace(/```[\w]*\s*/g, "").replace(/```/g, "").trim();
+        // For objects find {…}, for arrays find […]
+        const isArray = stripped.trimStart().startsWith("[");
+        const open = isArray ? "[" : "{";
+        const close = isArray ? "]" : "}";
+        const start = stripped.indexOf(open);
+        const end = stripped.lastIndexOf(close);
+        const jsonStr = start !== -1 && end > start ? stripped.slice(start, end + 1) : stripped;
+        const parsed = JSON.parse(jsonStr);
         return NextResponse.json({ result: parsed });
       } catch {
-        return NextResponse.json({ result: raw });
+        return NextResponse.json({ error: "AI returned invalid JSON. Please try again." }, { status: 422 });
       }
     }
 

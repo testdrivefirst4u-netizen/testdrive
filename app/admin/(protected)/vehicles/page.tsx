@@ -173,8 +173,8 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className="relative w-12 h-9 shrink-0">
-                          {v.images[0] ? (
-                            <Image src={v.images[0].url} alt={v.name} fill className="rounded-md object-cover bg-gray-100" />
+                          {(v.images[0]?.url || v.featuredImage) ? (
+                            <Image src={v.images[0]?.url || v.featuredImage!} alt={v.name} fill className="rounded-md object-cover bg-gray-100" />
                           ) : (
                             <div className="w-12 h-9 bg-gray-100 rounded-md flex items-center justify-center text-gray-300 text-xs">No img</div>
                           )}

@@ -2,9 +2,11 @@ import {
   Car, Tag, Newspaper, Users, BookOpen, Inbox,
   TrendingUp, ChevronRight, ArrowUpRight, Clock,
   Phone, Mail, MapPin, AlertCircle, BarChart3, UserCheck,
+  Send, Eye, FileBarChart,
 } from "lucide-react";
 import Link from "next/link";
 import prisma from "@/lib/prisma";
+import { VehicleTypeChart } from "@/components/admin/vehicle-type-chart";
 
 async function getStats() {
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
@@ -14,6 +16,7 @@ async function getStats() {
     vehicles, brands, news, blogs, users, publishedVehicles,
     leads, newLeads, convertedLeads, unassignedLeads,
     leadsThisWeek, leadsToday, contactedLeads,
+    draftVehicles, newsletterSubscribers, viewsAgg,
   ] = await Promise.all([
     prisma.vehicle.count(),
     prisma.brand.count(),
@@ -28,14 +31,27 @@ async function getStats() {
     prisma.lead.count({ where: { createdAt: { gte: weekAgo } } }),
     prisma.lead.count({ where: { createdAt: { gte: today  } } }),
     prisma.lead.count({ where: { status: "contacted" } }),
+    prisma.vehicle.count({ where: { status: "DRAFT" } }),
+    prisma.newsletterSubscriber.count({ where: { status: "active" } }),
+    prisma.vehicle.aggregate({ _sum: { viewCount: true } }),
   ]);
 
   return {
     vehicles, brands, news, blogs, users, publishedVehicles,
     leads, newLeads, convertedLeads, unassignedLeads,
     leadsThisWeek, leadsToday, contactedLeads,
+    draftVehicles, newsletterSubscribers,
+    totalViews: viewsAgg._sum.viewCount ?? 0,
     conversionRate: leads > 0 ? Math.round((convertedLeads / leads) * 100) : 0,
   };
+}
+
+async function getVehiclesByType() {
+  const types = ["CAR", "BIKE", "SCOOTER", "EV", "COMMERCIAL"] as const;
+  const counts = await Promise.all(
+    types.map((t) => prisma.vehicle.count({ where: { type: t } }))
+  );
+  return types.map((type, i) => ({ type, count: counts[i] }));
 }
 
 async function getLeadsBySource() {
@@ -91,23 +107,24 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default async function AdminDashboard() {
-  const [stats, leadsBySource, dealerPerf, recentLeads, recentVehicles] = await Promise.all([
+  const [stats, leadsBySource, dealerPerf, recentLeads, recentVehicles, vehiclesByType] = await Promise.all([
     getStats(),
     getLeadsBySource(),
     getDealerPerformance(),
     getRecentLeads(),
     getRecentVehicles(),
+    getVehiclesByType(),
   ]);
 
   const totalLeadsBySource = leadsBySource.reduce((a, s) => a + s.count, 0) || 1;
 
   const statCards = [
-    { label: "Total Vehicles", value: stats.vehicles,        sub: `${stats.publishedVehicles} published`, icon: Car,      href: "/admin/vehicles", gradient: "from-blue-500 to-blue-700",     glow: "shadow-blue-500/20" },
-    { label: "Brands",         value: stats.brands,          sub: "Registered manufacturers",             icon: Tag,      href: "/admin/brands",   gradient: "from-purple-500 to-violet-700", glow: "shadow-purple-500/20" },
-    { label: "Total Leads",    value: stats.leads,           sub: `${stats.newLeads} new`,                icon: Inbox,    href: "/admin/leads",    gradient: "from-amber-500 to-orange-600",  glow: "shadow-amber-500/20" },
-    { label: "News Articles",  value: stats.news,            sub: "Total published",                      icon: Newspaper,href: "/admin/news",     gradient: "from-orange-500 to-red-600",    glow: "shadow-orange-500/20" },
-    { label: "Blog Posts",     value: stats.blogs,           sub: "Content pieces",                       icon: BookOpen, href: "/admin/blogs",    gradient: "from-emerald-500 to-teal-700",  glow: "shadow-emerald-500/20" },
-    { label: "Users",          value: stats.users,           sub: "Registered accounts",                  icon: Users,    href: "/admin/users",    gradient: "from-pink-500 to-rose-700",     glow: "shadow-pink-500/20" },
+    { label: "Total Vehicles",   value: stats.vehicles,              sub: `${stats.publishedVehicles} published · ${stats.draftVehicles} draft`, icon: Car,          href: "/admin/vehicles",    gradient: "from-blue-500 to-blue-700",     glow: "shadow-blue-500/20"    },
+    { label: "Brands",           value: stats.brands,                sub: "Registered manufacturers",                                             icon: Tag,          href: "/admin/brands",      gradient: "from-purple-500 to-violet-700", glow: "shadow-purple-500/20"  },
+    { label: "Total Leads",      value: stats.leads,                 sub: `${stats.newLeads} new`,                                                icon: Inbox,        href: "/admin/leads",       gradient: "from-amber-500 to-orange-600",  glow: "shadow-amber-500/20"   },
+    { label: "News Articles",    value: stats.news,                  sub: "Total published",                                                      icon: Newspaper,    href: "/admin/news",        gradient: "from-orange-500 to-red-600",    glow: "shadow-orange-500/20"  },
+    { label: "Newsletter",       value: stats.newsletterSubscribers, sub: "Active subscribers",                                                   icon: Send,         href: "/admin/newsletter",  gradient: "from-teal-500 to-cyan-700",     glow: "shadow-teal-500/20"    },
+    { label: "Total Views",      value: stats.totalViews,            sub: "Across all vehicles",                                                  icon: Eye,          href: "/admin/vehicles",    gradient: "from-pink-500 to-rose-700",     glow: "shadow-pink-500/20"    },
   ];
 
   return (
@@ -166,6 +183,41 @@ export default async function AdminDashboard() {
             <p className="text-xs text-gray-500 mt-0.5 font-medium">{m.label}</p>
           </div>
         ))}
+      </div>
+
+      {/* Vehicle Type Breakdown + Extra Stats */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Vehicle by type bar chart */}
+        <div className="bg-white border border-gray-100 rounded-2xl p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <FileBarChart className="w-4 h-4 text-blue-600" />
+            <h2 className="font-bold text-gray-800 text-sm">Vehicles by Type</h2>
+          </div>
+          <VehicleTypeChart data={vehiclesByType} />
+        </div>
+
+        {/* Quick stats grid */}
+        <div className="bg-white border border-gray-100 rounded-2xl p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <BarChart3 className="w-4 h-4 text-purple-600" />
+            <h2 className="font-bold text-gray-800 text-sm">Inventory Snapshot</h2>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { label: "Published",    value: stats.publishedVehicles,      color: "bg-emerald-50 text-emerald-700" },
+              { label: "Drafts",       value: stats.draftVehicles,          color: "bg-amber-50 text-amber-700"    },
+              { label: "Subscribers",  value: stats.newsletterSubscribers,  color: "bg-teal-50 text-teal-700"      },
+              { label: "Total Views",  value: stats.totalViews.toLocaleString(), color: "bg-blue-50 text-blue-700" },
+              { label: "Blog Posts",   value: stats.blogs,                  color: "bg-indigo-50 text-indigo-700"  },
+              { label: "Contacted",    value: stats.contactedLeads,         color: "bg-pink-50 text-pink-700"      },
+            ].map((item) => (
+              <div key={item.label} className={`${item.color} rounded-xl p-3`}>
+                <p className="text-lg font-bold">{item.value}</p>
+                <p className="text-[11px] font-medium mt-0.5 opacity-80">{item.label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Lead Source Attribution + Dealer Performance */}

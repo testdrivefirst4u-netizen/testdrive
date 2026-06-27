@@ -219,14 +219,15 @@ model Vehicle {
   brand    Brand    @relation(fields: [brandId], references: [id])
   category Category @relation(fields: [categoryId], references: [id])
 
-  variants   Variant[]
-  images     VehicleImage[]
-  colours    VehicleColour[]
-  specGroups VehicleSpecGroup[]
-  features   VehicleFeature[]
-  faqs       Faq[]
-  seo        Seo?
-  media      Media[]
+  variants     Variant[]
+  images       VehicleImage[]
+  colours      VehicleColour[]
+  specGroups   VehicleSpecGroup[]
+  features     VehicleFeature[]
+  faqs         Faq[]
+  seo          Seo?
+  media        Media[]
+  dealerOffers DealerVehicleOffer[]
 
   @@map("vehicles")
 }
@@ -599,13 +600,14 @@ model Dealer {
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 
-  brand     Brand      @relation("DealerBrand", fields: [brandId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  adminUser User?      @relation("DealerAdmin", fields: [adminUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  staff     User[]     @relation("DealerStaff")
-  leads     Lead[]     @relation("LeadDealer")
-  crmLeads  CrmLead[]
-  followUps CrmFollowUp[]
-  testDrives CrmTestDrive[]
+  brand        Brand               @relation("DealerBrand", fields: [brandId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  adminUser    User?               @relation("DealerAdmin", fields: [adminUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  staff        User[]              @relation("DealerStaff")
+  leads        Lead[]              @relation("LeadDealer")
+  crmLeads     CrmLead[]
+  followUps    CrmFollowUp[]
+  testDrives   CrmTestDrive[]
+  vehicleOffers DealerVehicleOffer[]
 
   @@map("dealers")
 }
@@ -787,14 +789,66 @@ model CrmAuditLog {
 }
 
 model NewsletterSubscriber {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  email       String   @unique
-  name        String?
-  source      String?  @default("website")
-  status      String   @default("active")  // active | unsubscribed
-  tags        String[] @default([])
-  subscribedAt DateTime @default(now())
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  email          String    @unique
+  name           String?
+  source         String?   @default("website")
+  status         String    @default("active")
+  tags           String[]  @default([])
+  subscribedAt   DateTime  @default(now())
   unsubscribedAt DateTime?
 
   @@map("newsletter_subscribers")
+}
+
+// ─── Dealer Vehicle Offers ───────────────────────────────────────────────────
+
+model DealerVehicleOffer {
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  dealerId     String    @db.ObjectId
+  vehicleId    String    @db.ObjectId
+  variantName  String?
+  offerPrice   Float?
+  discount     Float?
+  discountType String?   // "percentage" | "fixed"
+  priceDisplay String?
+  validFrom    DateTime?
+  validUntil   DateTime?
+  notes        String?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  dealer  Dealer  @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@map("dealer_vehicle_offers")
+}
+
+// ─── User Saved Vehicles ─────────────────────────────────────────────────────
+
+model SavedVehicle {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  vehicleId String   @db.ObjectId
+  createdAt DateTime @default(now())
+
+  @@unique([userId, vehicleId])
+  @@map("saved_vehicles")
+}
+
+// ─── Price Drop Alerts ───────────────────────────────────────────────────────
+
+model PriceAlert {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String?   @db.ObjectId
+  email       String
+  vehicleId   String    @db.ObjectId
+  targetPrice Float?
+  isActive    Boolean   @default(true)
+  triggeredAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("price_alerts")
 }

@@ -27,7 +27,7 @@ export default function AISettingsPage() {
   const [testResult, setTestResult] = useState<"success" | "error" | null>(null);
 
   useEffect(() => {
-    fetch("/api/admin/settings?key=openai_api_key")
+    fetch("/api/admin/settings?key=groq_api_key")
       .then((r) => r.json())
       .then((d) => { if (d.value) setApiKey(d.value); })
       .catch(() => {});
@@ -39,7 +39,7 @@ export default function AISettingsPage() {
       const res = await fetch("/api/admin/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: "openai_api_key", value: apiKey, label: "OpenAI API Key", group: "ai", type: "string" }),
+        body: JSON.stringify({ key: "groq_api_key", value: apiKey, label: "Groq API Key", group: "ai", type: "string" }),
       });
       if (!res.ok) throw new Error("Failed to save");
       toast.success("API key saved");
@@ -55,6 +55,13 @@ export default function AISettingsPage() {
     setTesting(true);
     setTestResult(null);
     try {
+      // Save key first so the generate route can read it from DB
+      await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: "groq_api_key", value: apiKey, label: "Groq API Key", group: "ai", type: "string" }),
+      });
+
       const res = await fetch("/api/ai/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -62,14 +69,15 @@ export default function AISettingsPage() {
       });
       if (res.ok) {
         setTestResult("success");
-        toast.success("AI connection successful!");
+        toast.success("Groq connection successful!");
       } else {
+        const err = await res.json().catch(() => ({}));
         setTestResult("error");
-        toast.error("AI connection failed");
+        toast.error(err.error || "Gemini connection failed");
       }
     } catch {
       setTestResult("error");
-      toast.error("AI connection failed");
+      toast.error("Gemini connection failed");
     } finally {
       setTesting(false);
     }
@@ -79,31 +87,31 @@ export default function AISettingsPage() {
     <div className="space-y-6 max-w-2xl">
       <div>
         <h1 className="text-2xl font-bold">AI Settings</h1>
-        <p className="text-sm text-gray-500 mt-1">Configure OpenAI integration for content generation</p>
+        <p className="text-sm text-gray-500 mt-1">Configure Groq AI for fast, free content generation</p>
       </div>
 
       <Card>
         <CardHeader>
           <div className="flex items-center gap-3">
-            <div className="bg-purple-100 p-2 rounded-lg">
-              <BrainCircuit className="w-6 h-6 text-purple-600" />
+            <div className="bg-orange-100 p-2 rounded-lg">
+              <BrainCircuit className="w-6 h-6 text-orange-600" />
             </div>
             <div>
-              <CardTitle>OpenAI Configuration</CardTitle>
-              <CardDescription>Connect your OpenAI API key to enable AI features</CardDescription>
+              <CardTitle>Groq Configuration</CardTitle>
+              <CardDescription>Connect your Groq API key — completely free, no credit card needed</CardDescription>
             </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>OpenAI API Key</Label>
+            <Label>Groq API Key</Label>
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <Input
                   type={show ? "text" : "password"}
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="sk-..."
+                  placeholder="gsk_..."
                   className="pr-10 font-mono text-sm"
                 />
                 <button type="button" onClick={() => setShow(!show)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
@@ -111,7 +119,13 @@ export default function AISettingsPage() {
                 </button>
               </div>
             </div>
-            <p className="text-xs text-gray-500">Get your API key from <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">platform.openai.com</a></p>
+            <p className="text-xs text-gray-500">
+              Get your free API key from{" "}
+              <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" className="text-orange-600 hover:underline">
+                console.groq.com/keys
+              </a>{" "}
+              — sign up free, key starts with <span className="font-mono">gsk_</span>, uses Llama 3.3 70B model
+            </p>
           </div>
 
           {testResult && (
@@ -122,7 +136,7 @@ export default function AISettingsPage() {
           )}
 
           <div className="flex gap-3">
-            <Button onClick={handleSave} className="bg-red-600 hover:bg-red-700" disabled={saving || !apiKey}>
+            <Button onClick={handleSave} className="bg-orange-600 hover:bg-orange-700" disabled={saving || !apiKey}>
               {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Save API Key
             </Button>

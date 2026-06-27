@@ -1,0 +1,32 @@
+[
+  {
+    "id": "1",
+    "title": "BYD Seagull Electric Hatchback",
+    "imageUrl": "/stories/byd.jpg",
+    "category": "Electric",
+    "link": "/visual-stories/byd-seagull",
+    "isActive": true,
+    "sortOrder": 0,
+    "createdAt": "2024-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "2",
+    "title": "Mahindra Thar Pickup",
+    "imageUrl": "/stories/thar.jpg",
+    "category": "SUV",
+    "link": "/visual-stories/mahindra-thar",
+    "isActive": true,
+    "sortOrder": 1,
+    "createdAt": "2024-01-02T00:00:00.000Z"
+  },
+  {
+    "id": "3",
+    "title": "Car News Weekly",
+    "imageUrl": "/stories/news.jpg",
+    "category": "News",
+    "link": "/visual-stories/car-news-weekly",
+    "isActive": true,
+    "sortOrder": 2,
+    "createdAt": "2024-01-03T00:00:00.000Z"
+  }
+]

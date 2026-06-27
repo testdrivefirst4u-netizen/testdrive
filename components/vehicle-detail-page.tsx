@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -8,11 +8,13 @@ import {
   ThumbsUp, ThumbsDown, Star,
   Droplets, Wind, Zap, Settings2, Gauge, BatteryCharging,
   Phone, BadgeCheck, ArrowRight, Share2,
+  CalendarDays, Car, X, Loader2, Tag, MapPin, Calculator,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EMICalculator } from "@/components/emi-calculator";
 import OfferPopup from "@/components/forms/OfferPopup";
 import {
@@ -47,6 +49,7 @@ interface Vehicle {
   }>;
   features: Array<{ id: string; category: string; name: string; available: boolean }>;
   faqs: Array<{ id: string; question: string; answer: string }>;
+  featuredImage?: string | null;
 }
 
 interface Props {
@@ -54,10 +57,21 @@ interface Props {
   similar: Array<{
     id: string; name: string; slug: string; type: string;
     priceDisplay: string | null;
+    featuredImage?: string | null;
     brand: { name: string; slug: string };
     images: Array<{ url: string }>;
   }>;
   vehicleType: "car" | "bike" | "scooter" | "ev" | "commercial";
+}
+
+interface DealerOffer {
+  id: string;
+  dealerName: string;
+  city: string;
+  offerPrice?: number | null;
+  discount?: number | null;
+  validUntil?: string | null;
+  contactPhone?: string | null;
 }
 
 function typeToPath(type: string) {
@@ -76,13 +90,357 @@ function FuelBadge({ fuel }: { fuel: string }) {
   return <span className="flex items-center gap-1 text-xs text-blue-700 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-full"><Droplets className="w-3 h-3" />{fuel}</span>;
 }
 
+/* ─── Test Drive Modal ─── */
+function TestDriveModal({
+  open,
+  onClose,
+  vehicleId,
+  vehicleName,
+  brandId,
+}: {
+  open: boolean;
+  onClose: () => void;
+  vehicleId: string;
+  vehicleName: string;
+  brandId: string;
+}) {
+  const [name, setName]             = useState("");
+  const [mobile, setMobile]         = useState("");
+  const [email, setEmail]           = useState("");
+  const [preferredDate, setDate]    = useState("");
+  const [city, setCity]             = useState("");
+  const [loading, setLoading]       = useState(false);
+  const [success, setSuccess]       = useState(false);
+  const [error, setError]           = useState("");
+  const [toast, setToast]           = useState(false);
+
+  // reset on open
+  useEffect(() => {
+    if (open) {
+      setName(""); setMobile(""); setEmail(""); setDate(""); setCity("");
+      setLoading(false); setSuccess(false); setError(""); setToast(false);
+    }
+  }, [open]);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) { setError("Please enter your name."); return; }
+    if (!/^\d{10}$/.test(mobile)) { setError("Please enter a valid 10-digit mobile number."); return; }
+    setError(""); setLoading(true);
+
+    try {
+      const res = await fetch("/api/test-drive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(),
+          phone: mobile,
+          email: email.trim() || undefined,
+          model: vehicleName,
+          city: city.trim() || undefined,
+          date: preferredDate || undefined,
+          brandId,
+          source: "test_drive_cta",
+        }),
+      });
+
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        setError(d.error ?? "Something went wrong. Please try again.");
+        setLoading(false);
+        return;
+      }
+
+      setSuccess(true);
+      setToast(true);
+      setTimeout(() => {
+        onClose();
+      }, 2800);
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const minDate = new Date();
+  minDate.setDate(minDate.getDate() + 1);
+  const minDateStr = minDate.toISOString().split("T")[0];
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="sm:max-w-md p-0 overflow-hidden rounded-2xl">
+        <DialogHeader className="bg-blue-700 px-6 py-5">
+          <DialogTitle className="text-white text-lg font-bold flex items-center gap-2">
+            <Car className="w-5 h-5" /> Book a Test Drive
+          </DialogTitle>
+          <p className="text-blue-100 text-sm mt-0.5">Experience the {vehicleName} — we&apos;ll arrange it for you</p>
+        </DialogHeader>
+
+        {success ? (
+          <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+              <CheckCircle className="w-8 h-8 text-green-600" />
+            </div>
+            <h3 className="text-xl font-bold text-slate-900 mb-2">Test Drive Booked!</h3>
+            <p className="text-gray-500 text-sm leading-relaxed">
+              We&apos;ll contact you shortly to confirm your test drive slot for the{" "}
+              <span className="font-semibold text-blue-700">{vehicleName}</span>.
+            </p>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+            {/* Vehicle (read-only) */}
+            <div>
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Vehicle</label>
+              <div className="mt-1 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2.5 text-sm font-semibold text-blue-800">
+                {vehicleName}
+              </div>
+            </div>
+
+            {/* Name */}
+            <div>
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                Full Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => { setName(e.target.value); setError(""); }}
+                placeholder="Enter your full name"
+                className="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-200 transition-all"
+              />
+            </div>
+
+            {/* Mobile */}
+            <div>
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                Mobile Number <span className="text-red-500">*</span>
+              </label>
+              <div className="mt-1 flex items-center border border-gray-200 rounded-xl overflow-hidden focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-200 transition-all">
+                <span className="px-3 py-2.5 bg-gray-50 border-r border-gray-200 text-sm text-gray-500 font-medium">+91</span>
+                <input
+                  type="tel"
+                  value={mobile}
+                  onChange={(e) => { setMobile(e.target.value.replace(/\D/g, "").slice(0, 10)); setError(""); }}
+                  placeholder="10-digit mobile"
+                  className="flex-1 px-3 py-2.5 text-sm outline-none bg-transparent"
+                />
+              </div>
+            </div>
+
+            {/* Email (optional) */}
+            <div>
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Email (optional)</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="your@email.com"
+                className="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-200 transition-all"
+              />
+            </div>
+
+            {/* Date + City — 2-col */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Preferred Date</label>
+                <input
+                  type="date"
+                  value={preferredDate}
+                  min={minDateStr}
+                  onChange={(e) => setDate(e.target.value)}
+                  className="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-200 transition-all"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Dealer City</label>
+                <input
+                  type="text"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  placeholder="e.g. Mumbai"
+                  className="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-200 transition-all"
+                />
+              </div>
+            </div>
+
+            {error && (
+              <div className="bg-red-50 border border-red-100 text-red-600 text-xs rounded-xl px-3 py-2.5">
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-blue-700 hover:bg-blue-800 disabled:opacity-60 text-white py-3 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-2"
+            >
+              {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+              {loading ? "Booking..." : "Confirm Test Drive"}
+            </button>
+
+            <p className="text-center text-[11px] text-gray-400">
+              By submitting you agree to be contacted by our team. No spam.
+            </p>
+          </form>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ─── Toast ─── */
+function SuccessToast({ show }: { show: boolean }) {
+  return (
+    <div
+      className={`fixed bottom-24 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-2 bg-slate-900 text-white text-sm font-medium px-5 py-3 rounded-full shadow-xl transition-all duration-300 ${
+        show ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"
+      }`}
+    >
+      <CheckCircle className="w-4 h-4 text-green-400 shrink-0" />
+      Test drive booked! We&apos;ll contact you shortly.
+    </div>
+  );
+}
+
+/* ─── Dealer Offers Section ─── */
+function DealerOffersSection({ vehicleSlug, vehicleName }: { vehicleSlug: string; vehicleName: string }) {
+  const [offers, setOffers]     = useState<DealerOffer[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true); setError(false);
+    fetch(`/api/vehicles/${vehicleSlug}/dealer-offers`)
+      .then((r) => {
+        if (!r.ok) throw new Error("failed");
+        return r.json();
+      })
+      .then((data) => {
+        if (!cancelled) setOffers(Array.isArray(data) ? data : (data.offers ?? []));
+      })
+      .catch(() => {
+        if (!cancelled) setError(true);
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [vehicleSlug]);
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="font-bold text-slate-900 flex items-center gap-2">
+          <Tag className="w-4 h-4 text-blue-600" />
+          Best Dealer Offers
+          {!loading && !error && offers.length > 0 && (
+            <span className="ml-1 bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+              {offers.length}
+            </span>
+          )}
+        </h2>
+      </div>
+
+      {loading && (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
+        </div>
+      )}
+
+      {!loading && (error || offers.length === 0) && (
+        <div className="bg-blue-50 border border-blue-100 rounded-2xl p-5 flex flex-col sm:flex-row items-center gap-4">
+          <div className="flex-1">
+            <p className="font-semibold text-slate-900 text-sm mb-1">Get the best price on {vehicleName}</p>
+            <p className="text-gray-500 text-xs leading-relaxed">
+              Contact us and our team will fetch you the best dealer offers, discounts and finance deals available in your city.
+            </p>
+          </div>
+          <a
+            href="tel:+918888888888"
+            className="flex-shrink-0 flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors"
+          >
+            <Phone className="w-4 h-4" /> Contact Us
+          </a>
+        </div>
+      )}
+
+      {!loading && !error && offers.length > 0 && (
+        <div className="space-y-3">
+          {offers.map((offer) => (
+            <div key={offer.id} className="border border-gray-100 rounded-2xl p-4 hover:border-blue-200 hover:bg-blue-50/20 transition-all">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-bold text-sm text-slate-900">{offer.dealerName}</p>
+                    {offer.city && (
+                      <span className="flex items-center gap-1 text-xs text-gray-500">
+                        <MapPin className="w-3 h-3" />{offer.city}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-3 mt-2">
+                    {offer.offerPrice != null && (
+                      <div>
+                        <p className="text-[10px] text-gray-400 uppercase tracking-wide">Offer Price</p>
+                        <p className="font-bold text-blue-700 text-sm">
+                          ₹{(offer.offerPrice / 100000).toFixed(2)} Lakh
+                        </p>
+                      </div>
+                    )}
+                    {offer.discount != null && (
+                      <div>
+                        <p className="text-[10px] text-gray-400 uppercase tracking-wide">Discount</p>
+                        <p className="font-bold text-emerald-600 text-sm">
+                          ₹{(offer.discount / 100000).toFixed(2)} Lakh
+                        </p>
+                      </div>
+                    )}
+                    {offer.validUntil && (
+                      <div>
+                        <p className="text-[10px] text-gray-400 uppercase tracking-wide">Valid Until</p>
+                        <p className="font-semibold text-slate-700 text-xs">
+                          {new Date(offer.validUntil).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <a
+                  href={offer.contactPhone ? `tel:${offer.contactPhone}` : undefined}
+                  className="flex-shrink-0 flex items-center gap-1.5 bg-blue-700 hover:bg-blue-800 text-white px-3 py-2 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap"
+                >
+                  <Phone className="w-3 h-3" /> Contact
+                </a>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Main Page Component ─── */
 export function VehicleDetailPage({ vehicle, similar, vehicleType }: Props) {
-  const [offerOpen, setOfferOpen]       = useState(false);
-  const [activeImage, setActiveImage]   = useState(0);
-  const [activeColour, setActiveColour] = useState(-1);
-  const [shareOpen, setShareOpen]       = useState(false);
-  const [copied, setCopied]             = useState(false);
+  const [offerOpen, setOfferOpen]           = useState(false);
+  const [testDriveOpen, setTestDriveOpen]   = useState(false);
+  const [toastVisible, setToastVisible]     = useState(false);
+  const [activeImage, setActiveImage]       = useState(0);
+  const [activeColour, setActiveColour]     = useState(-1);
+  const [shareOpen, setShareOpen]           = useState(false);
+  const [copied, setCopied]                 = useState(false);
   const isEV = vehicle.isElectric || vehicle.type === "EV";
+
+  function openTestDrive() {
+    setTestDriveOpen(true);
+  }
+
+  function handleTestDriveSuccess() {
+    setTestDriveOpen(false);
+    setToastVisible(true);
+    setTimeout(() => setToastVisible(false), 3500);
+  }
 
   function getShareUrl() {
     if (typeof window === "undefined") return "";
@@ -101,8 +459,8 @@ export function VehicleDetailPage({ vehicle, similar, vehicleType }: Props) {
 
   const mainImage =
     activeColour >= 0
-      ? vehicle.colours[activeColour]?.imageUrl || vehicle.images[activeImage]?.url || "/placeholder.svg"
-      : vehicle.images[activeImage]?.url || "/placeholder.svg";
+      ? vehicle.colours[activeColour]?.imageUrl || vehicle.images[activeImage]?.url || vehicle.featuredImage || "/placeholder.svg"
+      : vehicle.images[activeImage]?.url || vehicle.featuredImage || "/placeholder.svg";
 
   const featureGroups = vehicle.features.reduce<Record<string, typeof vehicle.features>>((acc, f) => {
     if (!acc[f.category]) acc[f.category] = [];
@@ -268,7 +626,7 @@ export function VehicleDetailPage({ vehicle, similar, vehicleType }: Props) {
                       {vehicle.pros?.length > 0 && (
                         <div className="bg-emerald-50 rounded-2xl p-4">
                           <h3 className="font-bold text-sm text-emerald-800 flex items-center gap-2 mb-3">
-                            <ThumbsUp className="w-4 h-4" /> What's Great
+                            <ThumbsUp className="w-4 h-4" /> What&apos;s Great
                           </h3>
                           <ul className="space-y-2">
                             {vehicle.pros.map((p, i) => (
@@ -440,6 +798,9 @@ export function VehicleDetailPage({ vehicle, similar, vehicleType }: Props) {
               </Tabs>
             </div>
 
+            {/* ── Dealer Offers Section ── */}
+            <DealerOffersSection vehicleSlug={vehicle.slug} vehicleName={vehicle.name} />
+
             {/* FAQs */}
             {vehicle.faqs.length > 0 && (
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
@@ -487,8 +848,12 @@ export function VehicleDetailPage({ vehicle, similar, vehicleType }: Props) {
                 >
                   Check Best Offers <ArrowRight className="w-4 h-4" />
                 </Button>
-                <Button variant="outline" className="w-full h-10 border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-400 font-semibold text-sm gap-2">
-                  <Phone className="w-4 h-4" /> Book Test Drive
+                <Button
+                  variant="outline"
+                  className="w-full h-10 border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-400 font-semibold text-sm gap-2"
+                  onClick={openTestDrive}
+                >
+                  <CalendarDays className="w-4 h-4" /> Book Test Drive
                 </Button>
               </div>
 
@@ -528,7 +893,7 @@ export function VehicleDetailPage({ vehicle, similar, vehicleType }: Props) {
                       >
                         <div className="w-16 h-12 relative flex-shrink-0 rounded-lg overflow-hidden bg-gray-50">
                           <Image
-                            src={s.images[0]?.url || "/placeholder.svg"} alt={s.name} fill
+                            src={s.images[0]?.url || s.featuredImage || "/placeholder.svg"} alt={s.name} fill
                             className="object-cover group-hover:scale-105 transition-transform"
                             sizes="64px"
                           />
@@ -548,7 +913,29 @@ export function VehicleDetailPage({ vehicle, similar, vehicleType }: Props) {
         </div>
       </div>
 
+      {/* ── Sticky mobile Test Drive CTA ── */}
+      <div className="fixed bottom-4 right-4 z-40 lg:hidden">
+        <button
+          onClick={openTestDrive}
+          className="flex items-center gap-2 bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white px-5 py-3 rounded-full shadow-2xl font-bold text-sm transition-colors"
+        >
+          <CalendarDays className="w-4 h-4" />
+          Book Test Drive
+        </button>
+      </div>
+
+      {/* ── Modals & overlays ── */}
       <OfferPopup isOpen={offerOpen} onClose={() => setOfferOpen(false)} carName={vehicle.name} vehicleType={vehicleType} brandId={vehicle.brandId} />
+
+      <TestDriveModal
+        open={testDriveOpen}
+        onClose={() => setTestDriveOpen(false)}
+        vehicleId={vehicle.id}
+        vehicleName={`${vehicle.brand.name} ${vehicle.name}`}
+        brandId={vehicle.brandId}
+      />
+
+      <SuccessToast show={toastVisible} />
     </div>
   );
 }

@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
+import Groq from "groq-sdk";
 import prisma from "@/lib/prisma";
 
-async function getClient() {
-  const setting = await prisma.setting.findUnique({ where: { key: "openai_api_key" } }).catch(() => null);
-  const apiKey = setting?.value || process.env.OPENAI_API_KEY;
+async function getGroqClient() {
+  const setting = await prisma.setting.findUnique({ where: { key: "groq_api_key" } }).catch(() => null);
+  const apiKey = setting?.value || process.env.GROQ_API_KEY;
   if (!apiKey) throw new Error("no key");
-  return new OpenAI({ apiKey });
+  return new Groq({ apiKey });
 }
 
 export async function POST(req: NextRequest) {
@@ -14,9 +14,9 @@ export async function POST(req: NextRequest) {
     const { vehicle1, vehicle2 } = await req.json();
     if (!vehicle1 || !vehicle2) return NextResponse.json({ error: "missing" }, { status: 400 });
 
-    const client = await getClient();
+    const client = await getGroqClient();
     const completion = await client.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "llama-3.3-70b-versatile",
       messages: [
         {
           role: "system",

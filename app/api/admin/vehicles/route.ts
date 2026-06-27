@@ -71,53 +71,83 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Name, brand, category and type are required" }, { status: 400 });
     }
 
-    // Slug: use provided slug or auto-generate from name
     const rawSlug = body.slug ? slugify(body.slug) : slugify(name);
-    let slug = rawSlug;
-    let counter = 1;
-    while (await prisma.vehicle.findUnique({ where: { slug } })) {
-      slug = `${rawSlug}-${counter++}`;
-    }
-
     const seo = body.seo;
 
-    const vehicle = await prisma.vehicle.create({
-      data: {
-        name, slug, brandId, categoryId, type,
-        description, shortDescription,
-        priceMin: priceMin ? parseFloat(priceMin) : null,
-        priceMax: priceMax ? parseFloat(priceMax) : null,
-        priceDisplay,
-        exShowroomPrice: exShowroomPrice ? parseFloat(exShowroomPrice) : null,
-        onRoadPrice: onRoadPrice ? parseFloat(onRoadPrice) : null,
-        launchDate: launchDate ? new Date(launchDate) : null,
-        isUpcoming: !!isUpcoming, isPopular: !!isPopular, isElectric: !!isElectric, isNew: !!isNew,
-        featured: !!featured,
-        availabilityStatus: availabilityStatus || "available",
-        featuredImage: featuredImage || null,
-        featuredFileId: featuredFileId || null,
-        batteryCapacity, chargingTime, fastCharging: !!fastCharging, range, motorPower, motorTorque,
-        acChargingTime, dcChargingTime, chargingPortType,
-        bodyType, segment, mileage, topSpeed, engine, power, torque,
-        acceleration, drivetrainType,
-        seatingCapacity: seatingCapacity ? parseInt(seatingCapacity) : null,
-        overview, keyHighlights, pros, cons,
-        brochureUrl, brochureFileId, videoUrl,
-        vehicleWarranty, batteryWarranty,
-        status: status || "DRAFT",
-        sortOrder: sortOrder || 0,
-      },
-      include: { brand: { select: { name: true } }, category: { select: { name: true } } },
+    const vehicleData = (slug: string) => ({
+      name, slug, brandId, categoryId, type,
+      description, shortDescription,
+      priceMin: priceMin ? parseFloat(priceMin) : null,
+      priceMax: priceMax ? parseFloat(priceMax) : null,
+      priceDisplay,
+      exShowroomPrice: exShowroomPrice ? parseFloat(exShowroomPrice) : null,
+      onRoadPrice: onRoadPrice ? parseFloat(onRoadPrice) : null,
+      launchDate: launchDate ? new Date(launchDate) : null,
+      isUpcoming: !!isUpcoming, isPopular: !!isPopular, isElectric: !!isElectric, isNew: !!isNew,
+      featured: !!featured,
+      availabilityStatus: availabilityStatus || "available",
+      featuredImage: featuredImage || null,
+      featuredFileId: featuredFileId || null,
+      batteryCapacity, chargingTime, fastCharging: !!fastCharging, range, motorPower, motorTorque,
+      acChargingTime, dcChargingTime, chargingPortType,
+      bodyType, segment, mileage, topSpeed, engine, power, torque,
+      acceleration, drivetrainType,
+      seatingCapacity: seatingCapacity ? parseInt(seatingCapacity) : null,
+      overview, keyHighlights, pros, cons,
+      brochureUrl, brochureFileId, videoUrl,
+      vehicleWarranty, batteryWarranty,
+      status: status || "DRAFT",
+      sortOrder: sortOrder || 0,
     });
 
-    if (seo && Object.values(seo).some(Boolean)) {
-      await prisma.seo.create({ data: { vehicleId: vehicle.id, ...seo } });
+    // Try to create with the requested slug; on unique-conflict retry with -1, -2, …
+    let vehicle;
+    let counter = 0;
+    while (true) {
+      const slug = counter === 0 ? rawSlug : `${rawSlug}-${counter}`;
+      try {
+        vehicle = await prisma.vehicle.create({
+          data: vehicleData(slug),
+          include: { brand: { select: { name: true } }, category: { select: { name: true } } },
+        });
+        break;
+      } catch (e: any) {
+        if (e.code === "P2002" && counter < 20) { counter++; continue; }
+        throw e;
+      }
+    }
+
+    if (seo) {
+      const seoFields: Record<string, string> = {};
+      for (const k of ["metaTitle", "metaDescription", "metaKeywords", "canonicalUrl", "ogTitle", "ogDescription", "ogImage"]) {
+        if (seo[k]) seoFields[k] = seo[k];
+      }
+      if (Object.keys(seoFields).length) {
+        try {
+          const nowMs = Date.now().toString();
+          await prisma.$runCommandRaw({
+            update: "seo",
+            updates: [{
+              q: { vehicleId: { $oid: vehicle.id } },
+              u: {
+                $set: { ...seoFields, updatedAt: { $date: { $numberLong: nowMs } } },
+                $setOnInsert: {
+                  vehicleId: { $oid: vehicle.id },
+                  createdAt: { $date: { $numberLong: nowMs } },
+                },
+              },
+              upsert: true,
+            }],
+          });
+        } catch (e) {
+          console.error("SEO save error:", e);
+        }
+      }
     }
 
     return NextResponse.json(vehicle, { status: 201 });
   } catch (e: any) {
     console.error(e);
-    if (e.code === "P2002") return NextResponse.json({ error: "Vehicle with this slug already exists" }, { status: 409 });
     return NextResponse.json({ error: "Failed to create vehicle" }, { status: 500 });
   }
 }

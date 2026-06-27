@@ -27,6 +27,37 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   return NextResponse.json(colour, { status: 201 });
 }
 
+// Bulk replace all colours (used on save — both create and edit)
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const session = await auth();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const { id } = await params;
+    const { colours } = await req.json();
+
+    await prisma.vehicleColour.deleteMany({ where: { vehicleId: id } });
+
+    if (colours?.length) {
+      await prisma.vehicleColour.createMany({
+        data: colours.map((c: any, i: number) => ({
+          vehicleId: id,
+          name: c.name,
+          hexCode: c.hexCode || null,
+          imageUrl: c.imageUrl || null,
+          fileId: c.fileId || null,
+          sortOrder: i,
+        })),
+      });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (e) {
+    console.error(e);
+    return NextResponse.json({ error: "Failed to sync colours" }, { status: 500 });
+  }
+}
+
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
