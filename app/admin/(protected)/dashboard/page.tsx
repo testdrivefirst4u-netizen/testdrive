@@ -24,7 +24,7 @@ async function getStats() {
     prisma.lead.count(),
     prisma.lead.count({ where: { status: "new" } }),
     prisma.lead.count({ where: { status: "converted" } }),
-    prisma.lead.count({ where: { dealerId: null } }),
+    prisma.lead.count({ where: { dealerId: null } as any }),
     prisma.lead.count({ where: { createdAt: { gte: weekAgo } } }),
     prisma.lead.count({ where: { createdAt: { gte: today  } } }),
     prisma.lead.count({ where: { status: "contacted" } }),
