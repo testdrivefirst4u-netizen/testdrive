@@ -64,14 +64,24 @@ interface Props {
   vehicleType: "car" | "bike" | "scooter" | "ev" | "commercial";
 }
 
-interface DealerOffer {
+interface DealerEntry {
   id: string;
-  dealerName: string;
+  name: string;
   city: string;
-  offerPrice?: number | null;
-  discount?: number | null;
-  validUntil?: string | null;
-  contactPhone?: string | null;
+  state?: string | null;
+  address?: string | null;
+  phone: string;
+  logo?: string | null;
+  offer: {
+    id: string;
+    variantName?: string | null;
+    offerPrice?: number | null;
+    discount?: number | null;
+    discountType?: string | null;
+    priceDisplay?: string | null;
+    validUntil?: string | null;
+    notes?: string | null;
+  } | null;
 }
 
 function typeToPath(type: string) {
@@ -305,116 +315,214 @@ function SuccessToast({ show }: { show: boolean }) {
 }
 
 /* ─── Dealer Offers Section ─── */
-function DealerOffersSection({ vehicleSlug, vehicleName }: { vehicleSlug: string; vehicleName: string }) {
-  const [offers, setOffers]     = useState<DealerOffer[]>([]);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState(false);
+function DealerOffersSection({
+  vehicleSlug,
+  vehicleName,
+  brandName,
+}: {
+  vehicleSlug: string;
+  vehicleName: string;
+  brandName: string;
+}) {
+  const [dealers, setDealers] = useState<DealerEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true); setError(false);
+    setLoading(true);
+    setError(false);
     fetch(`/api/vehicles/${vehicleSlug}/dealer-offers`)
-      .then((r) => {
-        if (!r.ok) throw new Error("failed");
-        return r.json();
-      })
-      .then((data) => {
-        if (!cancelled) setOffers(Array.isArray(data) ? data : (data.offers ?? []));
-      })
-      .catch(() => {
-        if (!cancelled) setError(true);
-      })
+      .then((r) => { if (!r.ok) throw new Error("failed"); return r.json(); })
+      .then((data) => { if (!cancelled) setDealers(data.dealers ?? []); })
+      .catch(() => { if (!cancelled) setError(true); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [vehicleSlug]);
 
+  const dealersWithOffers    = dealers.filter((d) => d.offer);
+  const dealersWithoutOffers = dealers.filter((d) => !d.offer);
+
+  function fmtPrice(n: number) {
+    if (n >= 10000000) return `₹${(n / 10000000).toFixed(2)} Cr`;
+    if (n >= 100000)   return `₹${(n / 100000).toFixed(2)} L`;
+    return `₹${Math.round(n).toLocaleString("en-IN")}`;
+  }
+
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-      <div className="flex items-center justify-between mb-4">
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      {/* Header */}
+      <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
         <h2 className="font-bold text-slate-900 flex items-center gap-2">
-          <Tag className="w-4 h-4 text-blue-600" />
-          Best Dealer Offers
-          {!loading && !error && offers.length > 0 && (
-            <span className="ml-1 bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-              {offers.length}
+          <BadgeCheck className="w-4 h-4 text-blue-600" />
+          {brandName} Authorized Dealers
+          {!loading && dealers.length > 0 && (
+            <span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+              {dealers.length}
             </span>
           )}
         </h2>
+        {!loading && dealersWithOffers.length > 0 && (
+          <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded-full flex items-center gap-1">
+            <Tag className="w-3 h-3" /> {dealersWithOffers.length} Active Offer{dealersWithOffers.length > 1 ? "s" : ""}
+          </span>
+        )}
       </div>
 
+      {/* Loading */}
       {loading && (
-        <div className="flex items-center justify-center py-8">
+        <div className="flex items-center justify-center py-10">
           <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
         </div>
       )}
 
-      {!loading && (error || offers.length === 0) && (
-        <div className="bg-blue-50 border border-blue-100 rounded-2xl p-5 flex flex-col sm:flex-row items-center gap-4">
-          <div className="flex-1">
-            <p className="font-semibold text-slate-900 text-sm mb-1">Get the best price on {vehicleName}</p>
-            <p className="text-gray-500 text-xs leading-relaxed">
-              Contact us and our team will fetch you the best dealer offers, discounts and finance deals available in your city.
-            </p>
+      {/* Error / No dealers */}
+      {!loading && (error || dealers.length === 0) && (
+        <div className="p-5">
+          <div className="bg-blue-50 border border-blue-100 rounded-2xl p-5 flex flex-col sm:flex-row items-center gap-4">
+            <div className="flex-1">
+              <p className="font-semibold text-slate-900 text-sm mb-1">Find the best deal on {vehicleName}</p>
+              <p className="text-gray-500 text-xs leading-relaxed">
+                Our team will connect you with the nearest authorised {brandName} dealer and get you exclusive offers.
+              </p>
+            </div>
+            <a
+              href="tel:+918888888888"
+              className="flex-shrink-0 flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors"
+            >
+              <Phone className="w-4 h-4" /> Call Us
+            </a>
           </div>
-          <a
-            href="tel:+918888888888"
-            className="flex-shrink-0 flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors"
-          >
-            <Phone className="w-4 h-4" /> Contact Us
-          </a>
         </div>
       )}
 
-      {!loading && !error && offers.length > 0 && (
-        <div className="space-y-3">
-          {offers.map((offer) => (
-            <div key={offer.id} className="border border-gray-100 rounded-2xl p-4 hover:border-blue-200 hover:bg-blue-50/20 transition-all">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-bold text-sm text-slate-900">{offer.dealerName}</p>
-                    {offer.city && (
+      {/* Dealers with active offers */}
+      {!loading && !error && dealersWithOffers.length > 0 && (
+        <div className="p-5 space-y-3">
+          <p className="text-xs font-bold text-emerald-700 uppercase tracking-wider flex items-center gap-1.5">
+            <Tag className="w-3.5 h-3.5" /> Special Offers on {vehicleName}
+          </p>
+          {dealersWithOffers.map((d) => {
+            const o = d.offer!;
+            return (
+              <div
+                key={d.id}
+                className="border border-emerald-100 bg-emerald-50/40 rounded-2xl p-4 hover:border-emerald-200 transition-all"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    {/* Dealer name + location */}
+                    <div className="flex items-center flex-wrap gap-2 mb-1">
+                      {d.logo && (
+                        <Image src={d.logo} alt={d.name} width={20} height={20} className="object-contain rounded" />
+                      )}
+                      <p className="font-bold text-sm text-slate-900">{d.name}</p>
                       <span className="flex items-center gap-1 text-xs text-gray-500">
-                        <MapPin className="w-3 h-3" />{offer.city}
+                        <MapPin className="w-3 h-3" />{d.city}{d.state ? `, ${d.state}` : ""}
                       </span>
+                    </div>
+
+                    {/* Offer badges */}
+                    <div className="flex flex-wrap gap-3 mt-2">
+                      {o.variantName && (
+                        <span className="text-[10px] bg-blue-100 text-blue-700 font-semibold px-2 py-0.5 rounded-full">
+                          {o.variantName}
+                        </span>
+                      )}
+                      {o.offerPrice != null && (
+                        <div>
+                          <p className="text-[10px] text-gray-400 uppercase tracking-wide">Offer Price</p>
+                          <p className="font-bold text-blue-700 text-sm">{fmtPrice(o.offerPrice)}</p>
+                        </div>
+                      )}
+                      {o.discount != null && (
+                        <div>
+                          <p className="text-[10px] text-gray-400 uppercase tracking-wide">
+                            {o.discountType === "percentage" ? "Discount %" : "Discount"}
+                          </p>
+                          <p className="font-bold text-emerald-600 text-sm">
+                            {o.discountType === "percentage"
+                              ? `${o.discount}% off`
+                              : fmtPrice(o.discount)}
+                          </p>
+                        </div>
+                      )}
+                      {o.priceDisplay && !o.offerPrice && (
+                        <div>
+                          <p className="text-[10px] text-gray-400 uppercase tracking-wide">Price</p>
+                          <p className="font-bold text-blue-700 text-sm">{o.priceDisplay}</p>
+                        </div>
+                      )}
+                      {o.validUntil && (
+                        <div>
+                          <p className="text-[10px] text-gray-400 uppercase tracking-wide">Valid Till</p>
+                          <p className="font-semibold text-slate-700 text-xs">
+                            {new Date(o.validUntil).toLocaleDateString("en-IN", {
+                              day: "numeric", month: "short", year: "numeric",
+                            })}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    {o.notes && (
+                      <p className="text-[11px] text-gray-500 mt-2 italic">{o.notes}</p>
                     )}
                   </div>
-                  <div className="flex flex-wrap gap-3 mt-2">
-                    {offer.offerPrice != null && (
-                      <div>
-                        <p className="text-[10px] text-gray-400 uppercase tracking-wide">Offer Price</p>
-                        <p className="font-bold text-blue-700 text-sm">
-                          ₹{(offer.offerPrice / 100000).toFixed(2)} Lakh
-                        </p>
-                      </div>
-                    )}
-                    {offer.discount != null && (
-                      <div>
-                        <p className="text-[10px] text-gray-400 uppercase tracking-wide">Discount</p>
-                        <p className="font-bold text-emerald-600 text-sm">
-                          ₹{(offer.discount / 100000).toFixed(2)} Lakh
-                        </p>
-                      </div>
-                    )}
-                    {offer.validUntil && (
-                      <div>
-                        <p className="text-[10px] text-gray-400 uppercase tracking-wide">Valid Until</p>
-                        <p className="font-semibold text-slate-700 text-xs">
-                          {new Date(offer.validUntil).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
-                        </p>
-                      </div>
+
+                  {/* Call button */}
+                  <a
+                    href={`tel:${d.phone}`}
+                    className="flex-shrink-0 flex items-center gap-1.5 bg-blue-700 hover:bg-blue-800 text-white px-3 py-2 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap"
+                  >
+                    <Phone className="w-3 h-3" /> Call
+                  </a>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Dealers without specific offer — still show as available */}
+      {!loading && !error && dealersWithoutOffers.length > 0 && (
+        <div className={`p-5 space-y-3 ${dealersWithOffers.length > 0 ? "border-t border-gray-100" : ""}`}>
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+            <BadgeCheck className="w-3.5 h-3.5 text-blue-500" /> All Authorised Dealers
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {dealersWithoutOffers.map((d) => (
+              <div
+                key={d.id}
+                className="border border-gray-100 rounded-2xl p-3.5 hover:border-blue-200 hover:bg-blue-50/20 transition-all"
+              >
+                <div className="flex items-start gap-3">
+                  {d.logo ? (
+                    <Image src={d.logo} alt={d.name} width={32} height={32} className="object-contain rounded-lg shrink-0" />
+                  ) : (
+                    <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
+                      <Car className="w-4 h-4 text-blue-600" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-sm text-slate-900 truncate">{d.name}</p>
+                    <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                      <MapPin className="w-3 h-3 shrink-0" />
+                      {d.city}{d.state ? `, ${d.state}` : ""}
+                    </p>
+                    {d.address && (
+                      <p className="text-[11px] text-gray-400 mt-0.5 truncate">{d.address}</p>
                     )}
                   </div>
                 </div>
                 <a
-                  href={offer.contactPhone ? `tel:${offer.contactPhone}` : undefined}
-                  className="flex-shrink-0 flex items-center gap-1.5 bg-blue-700 hover:bg-blue-800 text-white px-3 py-2 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap"
+                  href={`tel:${d.phone}`}
+                  className="mt-2.5 w-full flex items-center justify-center gap-1.5 border border-blue-200 text-blue-700 hover:bg-blue-50 px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors"
                 >
-                  <Phone className="w-3 h-3" /> Contact
+                  <Phone className="w-3 h-3" /> {d.phone}
                 </a>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -793,13 +901,17 @@ export function VehicleDetailPage({ vehicle, similar, vehicleType }: Props) {
 
                 {/* EMI */}
                 <TabsContent value="emi" className="m-0">
-                  <EMICalculator carPrice={(vehicle.priceMin || 0) * 100000} carName={vehicle.name} />
+                  <EMICalculator carPrice={vehicle.priceMin || 0} carName={vehicle.name} />
                 </TabsContent>
               </Tabs>
             </div>
 
             {/* ── Dealer Offers Section ── */}
-            <DealerOffersSection vehicleSlug={vehicle.slug} vehicleName={vehicle.name} />
+            <DealerOffersSection
+              vehicleSlug={vehicle.slug}
+              vehicleName={vehicle.name}
+              brandName={vehicle.brand.name}
+            />
 
             {/* FAQs */}
             {vehicle.faqs.length > 0 && (

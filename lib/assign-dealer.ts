@@ -78,7 +78,7 @@ export async function assignDealer(
     }
   }
 
-  // If all open dealers are at capacity, fall back to any available dealer (outside hours)
+  // If all open dealers are at capacity, try closed (outside hours) dealers under capacity
   for (const dealer of dealers) {
     if (isDealerOpenNow(dealer.businessHours)) continue;
     const resetDate = new Date(dealer.lastCountReset);
@@ -98,5 +98,35 @@ export async function assignDealer(
     }
   }
 
-  return null;
+  // Last resort: all dealers are over capacity — assign to least-loaded dealer so
+  // the lead is never left with dealerId=null (invisible to dealer portal).
+  const leastLoaded = dealers.reduce((a, b) => {
+    const aCount = new Date(a.lastCountReset).setHours(0,0,0,0) < today.getTime() ? 0 : a.todayLeadCount;
+    const bCount = new Date(b.lastCountReset).setHours(0,0,0,0) < today.getTime() ? 0 : b.todayLeadCount;
+    return aCount <= bCount ? a : b;
+  });
+  const lrReset   = new Date(leastLoaded.lastCountReset);
+  lrReset.setHours(0, 0, 0, 0);
+  const lrIsNewDay = lrReset < today;
+  await prisma.dealer.update({
+    where: { id: leastLoaded.id },
+    data: {
+      lastAssignedAt: now,
+      todayLeadCount: lrIsNewDay ? 1 : { increment: 1 },
+      ...(lrIsNewDay ? { lastCountReset: now } : {}),
+    },
+  });
+
+  if (leadInfo) {
+    notifyDealerNewLead({
+      dealerEmail:  leastLoaded.email,
+      dealerName:   leastLoaded.name,
+      leadName:     leadInfo.name,
+      leadMobile:   leadInfo.mobile,
+      vehicleName:  leadInfo.vehicleName,
+      source:       leadInfo.source ?? "website",
+    }).catch(() => {});
+  }
+
+  return leastLoaded.id;
 }

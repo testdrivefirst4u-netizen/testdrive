@@ -28,9 +28,14 @@ export default async function DealerDashboardPage() {
   let recentLeads: any[] = [];
 
   if (dealer?.brandId) {
-    // Filter by dealerId so each dealer only sees their own assigned leads.
-    // This also means inactive dealers see only previously assigned leads (no new ones).
-    const base = { dealerId: dealer.id };
+    // Show leads assigned to this dealer OR unassigned leads for their brand.
+    // Leads can have dealerId=null when all dealers were at capacity at submission time.
+    const base: any = {
+      OR: [
+        { dealerId: dealer.id },
+        { brandId: dealer.brandId, dealerId: null },
+      ],
+    };
     [total, todayCount, newCount, contactedCount, convertedCount] = await Promise.all([
       prisma.lead.count({ where: base }),
       prisma.lead.count({ where: { ...base, createdAt: { gte: today } } }),

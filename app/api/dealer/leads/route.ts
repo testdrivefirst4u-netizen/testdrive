@@ -15,7 +15,6 @@ export async function GET(req: NextRequest) {
 
   if (!userId) return NextResponse.json({ error: "Session missing user ID" }, { status: 401 });
 
-  // Get the dealer this user belongs to
   const user = await prisma.user.findUnique({
     where: { id: userId },
     include: {
@@ -30,21 +29,34 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const page   = Math.max(1, parseInt(searchParams.get("page")   ?? "1"));
   const limit  = Math.min(50, parseInt(searchParams.get("limit") ?? "20"));
-  const search = searchParams.get("search") ?? "";
-  const status = searchParams.get("status") ?? "";
+  const search = searchParams.get("search")?.trim() ?? "";
+  const status = searchParams.get("status")?.trim() ?? "";
 
-  // Only show leads explicitly assigned to this dealer (dealerId = dealer.id)
-  // This ensures inactive dealers only see their previously assigned leads,
-  // and new leads (which skip inactive dealers) never appear here.
-  const where: any = { dealerId: dealer.id };
-  if (status) where.status = status;
+  // Show leads explicitly assigned to this dealer OR unassigned leads for their brand.
+  // Leads can have dealerId=null when assignDealer couldn't find an eligible dealer at
+  // submission time (all at capacity / outside hours). Those still belong to the brand.
+  const andConditions: any[] = [
+    {
+      OR: [
+        { dealerId: dealer.id },
+        ...(dealer.brandId ? [{ brandId: dealer.brandId, dealerId: null }] : []),
+      ],
+    },
+  ];
+
+  if (status) andConditions.push({ status });
+
   if (search) {
-    where.OR = [
-      { name:        { contains: search, mode: "insensitive" } },
-      { mobile:      { contains: search } },
-      { vehicleName: { contains: search, mode: "insensitive" } },
-    ];
+    andConditions.push({
+      OR: [
+        { name:        { contains: search, mode: "insensitive" } },
+        { mobile:      { contains: search } },
+        { vehicleName: { contains: search, mode: "insensitive" } },
+      ],
+    });
   }
+
+  const where = andConditions.length === 1 ? andConditions[0] : { AND: andConditions };
 
   const [leads, total] = await Promise.all([
     prisma.lead.findMany({
@@ -57,9 +69,24 @@ export async function GET(req: NextRequest) {
     prisma.lead.count({ where }),
   ]);
 
+  // Per-status counts (unfiltered except by dealer/brand)
+  const baseWhere: any = {
+    OR: [
+      { dealerId: dealer.id },
+      ...(dealer.brandId ? [{ brandId: dealer.brandId, dealerId: null }] : []),
+    ],
+  };
+  const [newCount, contactedCount, convertedCount, lostCount] = await Promise.all([
+    prisma.lead.count({ where: { ...baseWhere, status: "new" } }),
+    prisma.lead.count({ where: { ...baseWhere, status: "contacted" } }),
+    prisma.lead.count({ where: { ...baseWhere, status: "converted" } }),
+    prisma.lead.count({ where: { ...baseWhere, status: "lost" } }),
+  ]);
+
   return NextResponse.json({
     leads,
     dealer,
+    statusCounts: { new: newCount, contacted: contactedCount, converted: convertedCount, lost: lostCount },
     meta: {
       total, page, pages: Math.ceil(total / limit),
       hasPrev: page > 1, hasNext: page < Math.ceil(total / limit),

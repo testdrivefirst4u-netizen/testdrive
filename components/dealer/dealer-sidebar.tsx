@@ -2,13 +2,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { dealerSignOutAction } from "@/app/dealer/actions";
-import { LayoutDashboard, Users, CalendarClock, Car, LogOut, User } from "lucide-react";
+import { LayoutDashboard, Users, CalendarClock, Car, LogOut, User, Tag } from "lucide-react";
 import { useEffect, useState } from "react";
 
 const NAV = [
   { href: "/dealer/dashboard",      label: "Dashboard",     icon: LayoutDashboard },
   { href: "/dealer/leads",          label: "My Leads",      icon: Car },
   { href: "/dealer/follow-ups",     label: "Follow-ups",    icon: CalendarClock },
+  { href: "/dealer/offers",         label: "My Offers",     icon: Tag },
   { href: "/dealer/team",           label: "My Team",       icon: Users, adminOnly: true },
   { href: "/dealer/profile",        label: "My Profile",    icon: User },
 ];

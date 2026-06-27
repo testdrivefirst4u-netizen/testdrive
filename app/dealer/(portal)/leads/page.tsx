@@ -110,23 +110,25 @@ function LeadDrawer({ lead, onClose, onSaved }: { lead: any; onClose: () => void
 }
 
 export default function DealerLeadsPage() {
-  const [leads,   setLeads]   = useState<any[]>([]);
-  const [meta,    setMeta]    = useState<any>({});
-  const [dealer,  setDealer]  = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [drawer,  setDrawer]  = useState<any>(null);
-  const [search,  setSearch]  = useState("");
-  const [status,  setStatus]  = useState("");
-  const [page,    setPage]    = useState(1);
+  const [leads,        setLeads]        = useState<any[]>([]);
+  const [meta,         setMeta]         = useState<any>({});
+  const [dealer,       setDealer]       = useState<any>(null);
+  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
+  const [loading,      setLoading]      = useState(true);
+  const [drawer,       setDrawer]       = useState<any>(null);
+  const [search,       setSearch]       = useState("");
+  const [status,       setStatus]       = useState("");
+  const [page,         setPage]         = useState(1);
 
   const load = useCallback(async () => {
     setLoading(true);
     const p = new URLSearchParams({ page: String(page), limit: "20", search, ...(status ? { status } : {}) });
     const res  = await fetch(`/api/dealer/leads?${p}`);
     const data = await res.json();
-    setLeads(data.leads  ?? []);
-    setMeta(data.meta   ?? {});
-    setDealer(data.dealer ?? null);
+    setLeads(data.leads        ?? []);
+    setMeta(data.meta          ?? {});
+    setDealer(data.dealer      ?? null);
+    setStatusCounts(data.statusCounts ?? {});
     setLoading(false);
   }, [page, search, status]);
 
@@ -154,7 +156,7 @@ export default function DealerLeadsPage() {
                 ? (STATUS_COLORS[s] ?? "bg-gray-100 text-gray-600") + " border-current"
                 : "bg-white border-gray-200 text-gray-500 hover:border-gray-300"
             }`}>
-            {s}
+            {s}{statusCounts[s] != null ? ` (${statusCounts[s]})` : ""}
           </button>
         ))}
       </div>
