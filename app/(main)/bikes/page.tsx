@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { CarGrid } from "@/components/car-grid";
@@ -27,7 +27,7 @@ const HIGHLIGHTS = [
 
 export default function BikesPage() {
   const [filters, setFilters] = useState<FilterState>({
-    priceRange:           [0, 50],
+    priceRange:           [0, 200],
     selectedBrands:       [],
     selectedFuelTypes:    [],
     selectedTransmissions:[],
@@ -62,7 +62,7 @@ export default function BikesPage() {
             {activeTypes.length > 1
               ? "bikes and scooters"
               : activeTypes[0]?.toLowerCase() + "s"}{" "}
-            — commuter, cruiser, sport, electric & more
+            â€” commuter, cruiser, sport, electric & more
           </p>
 
           {/* Quick type tabs */}
@@ -134,3 +134,4 @@ export default function BikesPage() {
     </div>
   );
 }
+

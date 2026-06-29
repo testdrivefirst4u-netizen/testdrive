@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { CarGrid } from "@/components/car-grid";
@@ -20,7 +20,7 @@ const CATEGORIES = [
 
 export default function CommercialPage() {
   const [filters, setFilters] = useState<FilterState>({
-    priceRange:           [0, 50],
+    priceRange:           [0, 200],
     selectedBrands:       [],
     selectedFuelTypes:    [],
     selectedTransmissions:[],
@@ -98,3 +98,4 @@ export default function CommercialPage() {
     </div>
   );
 }
+

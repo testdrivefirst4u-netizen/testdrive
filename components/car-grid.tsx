@@ -76,16 +76,16 @@ export function CarGrid({ filters, defaultType, defaultTypes, electricOnly }: Ca
     const params = new URLSearchParams();
     if (filters.searchQuery) params.set("search", filters.searchQuery);
     if (filters.selectedBrands?.length) params.set("brand", filters.selectedBrands[0]);
-    if (filters.selectedBodyTypes?.length) params.set("bodyType", filters.selectedBodyTypes[0]);
-    if (filters.selectedFuelTypes?.length) params.set("fuel", filters.selectedFuelTypes[0]);
-    if (filters.selectedTransmissions?.length) params.set("transmission", filters.selectedTransmissions[0]);
+    if (filters.selectedBodyTypes?.length) params.set("bodyType", filters.selectedBodyTypes.join(","));
+    if (filters.selectedFuelTypes?.length) params.set("fuel", filters.selectedFuelTypes.join(","));
+    if (filters.selectedTransmissions?.length) params.set("transmission", filters.selectedTransmissions.join(","));
     if (defaultTypes?.length) params.set("types", defaultTypes.join(","));
     else if (defaultType) params.set("type", defaultType);
     if (electricOnly) params.set("electric", "true");
 
-    const [pMin, pMax] = filters.priceRange || [0, 50];
+    const [pMin, pMax] = filters.priceRange || [0, 200];
     if (pMin > 0) params.set("priceMin", String(pMin));
-    if (pMax < 50) params.set("priceMax", String(pMax));
+    if (pMax < 200) params.set("priceMax", String(pMax));
 
     params.set("sortBy", sortBy);
     params.set("limit", String(LIMIT));

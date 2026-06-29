@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { CarGrid } from "@/components/car-grid";
@@ -14,13 +14,13 @@ import PageTopBanner from "@/components/home/PageTopBanner";
 const EV_HIGHLIGHTS = [
   { icon: Zap,        label: "Fast Charging",    desc: "DC fast charge in under 1 hr",    color: "text-teal-700 bg-teal-50"    },
   { icon: Battery,    label: "Long Range",        desc: "300+ km range on single charge",  color: "text-blue-700 bg-blue-50"    },
-  { icon: IndianRupee,label: "Low Running Cost",  desc: "₹1–2 per km vs ₹6+ for petrol",  color: "text-emerald-700 bg-emerald-50"},
+  { icon: IndianRupee,label: "Low Running Cost",  desc: "â‚¹1â€“2 per km vs â‚¹6+ for petrol",  color: "text-emerald-700 bg-emerald-50"},
   { icon: Leaf,       label: "Zero Emissions",    desc: "No tailpipe, clean city air",     color: "text-green-700 bg-green-50"  },
 ];
 
 export default function EvPage() {
   const [filters, setFilters] = useState<FilterState>({
-    priceRange:           [0, 50],
+    priceRange:           [0, 200],
     selectedBrands:       [],
     selectedFuelTypes:    [],
     selectedTransmissions:[],
@@ -55,7 +55,7 @@ export default function EvPage() {
             <h1 className="text-2xl sm:text-3xl font-bold">Electric Vehicles</h1>
           </div>
           <p className="text-teal-100 text-sm max-w-2xl">
-            Future-proof your ride. Explore India's best electric cars, bikes & scooters — save fuel, reduce emissions, enjoy lower running costs.
+            Future-proof your ride. Explore India's best electric cars, bikes & scooters â€” save fuel, reduce emissions, enjoy lower running costs.
           </p>
         </div>
       </div>
@@ -93,3 +93,4 @@ export default function EvPage() {
     </div>
   );
 }
+

@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
     const priceMinLakh = parseFloat(searchParams.get("priceMin") || "0");
     const priceMaxLakh = parseFloat(searchParams.get("priceMax") || "9999");
     const fuel = searchParams.get("fuel") || "";
+    const transmission = searchParams.get("transmission") || "";
     const sortBy = searchParams.get("sortBy") || "newest";
     const featured = searchParams.get("featured") === "true";
     const electricOnly = searchParams.get("electric") === "true";
@@ -35,21 +36,44 @@ export async function GET(req: NextRequest) {
       where.type = type;
     }
     if (brand) where.brand = { slug: brand };
-    if (bodyType) where.bodyType = { equals: bodyType, mode: "insensitive" };
+
+    if (bodyType) {
+      const bodyTypes = bodyType.split(",").filter(Boolean);
+      where.bodyType = bodyTypes.length === 1
+        ? { equals: bodyTypes[0], mode: "insensitive" }
+        : { in: bodyTypes };
+    }
+
     if (featured) where.featured = true;
     if (electricOnly) where.isElectric = true;
     if (upcoming) where.isUpcoming = true;
     if (availability) where.availabilityStatus = availability;
 
-    // Only apply price filter when the user has explicitly set a range
+    // Price is stored in rupees; filter bar sends values in Lakhs
     if (searchParams.has("priceMin") || searchParams.has("priceMax")) {
       const conditions: any[] = [];
-      if (priceMinLakh > 0) conditions.push({ priceMin: { gte: priceMinLakh } });
-      if (priceMaxLakh < 9999) conditions.push({ priceMin: { lte: priceMaxLakh } });
+      if (priceMinLakh > 0) conditions.push({ priceMin: { gte: priceMinLakh * 100000 } });
+      if (priceMaxLakh < 9999) conditions.push({ priceMin: { lte: priceMaxLakh * 100000 } });
       if (conditions.length) where.AND = conditions;
     }
 
-    if (fuel) where.variants = { some: { fuelType: { equals: fuel, mode: "insensitive" } } };
+    // Variant-level filters: fuel and transmission (merged so a single variant must match both)
+    if (fuel || transmission) {
+      const variantFilter: any = {};
+      if (fuel) {
+        const fuels = fuel.split(",").filter(Boolean);
+        variantFilter.fuelType = fuels.length === 1
+          ? { equals: fuels[0], mode: "insensitive" }
+          : { in: fuels };
+      }
+      if (transmission) {
+        const transmissions = transmission.split(",").filter(Boolean);
+        variantFilter.transmission = transmissions.length === 1
+          ? { equals: transmissions[0], mode: "insensitive" }
+          : { in: transmissions };
+      }
+      where.variants = { some: variantFilter };
+    }
 
     const orderBy: any =
       sortBy === "price-low" ? { priceMin: "asc" } :

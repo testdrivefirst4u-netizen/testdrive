@@ -26,7 +26,7 @@ export default function CarsPage() {
   const bodyTypeParam = searchParams.get("bodyType") || "";
 
   const [filters, setFilters] = useState<FilterState>({
-    priceRange:           [0, 50],
+    priceRange:           [0, 200],
     selectedBrands:       [],
     selectedFuelTypes:    [],
     selectedTransmissions:[],

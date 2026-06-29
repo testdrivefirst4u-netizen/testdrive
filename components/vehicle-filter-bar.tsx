@@ -117,7 +117,7 @@ const TABS_FOR: Record<FilterCategory, { key: TabKey; label: string; Icon: React
 /* ── Pill helpers ────────────────────────────────────────── */
 
 function isBudgetActive(f: FilterState, min: number, max: number) {
-  const [pMin, pMax] = f.priceRange ?? [0, 50];
+  const [pMin, pMax] = f.priceRange ?? [0, 200];
   return pMin === min && pMax === max;
 }
 
@@ -132,15 +132,15 @@ export function VehicleFilterBar({ category, filters, onChange }: VehicleFilterB
   const tabs = TABS_FOR[category];
 
   /* ── Count active filters ─────────────────────────── */
-  const [pMin, pMax] = filters.priceRange ?? [0, 50];
-  const budgetActive    = pMin > 0 || (pMax < 50 && pMax > 0);
+  const [pMin, pMax] = filters.priceRange ?? [0, 200];
+  const budgetActive    = pMin > 0 || (pMax < 200 && pMax > 0);
   const bodyActive      = (filters.selectedBodyTypes?.length ?? 0) > 0;
   const fuelActive      = (filters.selectedFuelTypes?.length ?? 0) > 0;
   const transActive     = (filters.selectedTransmissions?.length ?? 0) > 0;
   const totalActive     = (budgetActive?1:0)+(bodyActive?1:0)+(fuelActive?1:0)+(transActive?1:0);
 
   function clearAll() {
-    onChange({ ...filters, priceRange: [0, 50], selectedBodyTypes: [], selectedFuelTypes: [], selectedTransmissions: [] });
+    onChange({ ...filters, priceRange: [0, 200], selectedBodyTypes: [], selectedFuelTypes: [], selectedTransmissions: [] });
   }
 
   /* ── Render pills per active tab ──────────────────── */
@@ -151,7 +151,7 @@ export function VehicleFilterBar({ category, filters, onChange }: VehicleFilterB
         return (
           <button
             key={b.label}
-            onClick={() => onChange({ ...filters, priceRange: active ? [0, 50] : [b.min, b.max] })}
+            onClick={() => onChange({ ...filters, priceRange: active ? [0, 200] : [b.min, b.max] })}
             className={`h-9 px-4 rounded-full text-sm font-medium border transition-all duration-150 whitespace-nowrap ${
               active
                 ? "bg-blue-600 text-white border-blue-600 shadow-sm"
@@ -300,7 +300,7 @@ export function VehicleFilterBar({ category, filters, onChange }: VehicleFilterB
             {budgetActive && (
               <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-100 px-2.5 py-1 rounded-full">
                 {pMin === 0 ? `Under ₹${pMax}L` : pMax >= 200 ? `₹${pMin}L+` : `₹${pMin}L – ₹${pMax}L`}
-                <button onClick={() => onChange({ ...filters, priceRange: [0, 50] })} className="hover:text-blue-900">
+                <button onClick={() => onChange({ ...filters, priceRange: [0, 200] })} className="hover:text-blue-900">
                   <X className="w-3 h-3" />
                 </button>
               </span>
