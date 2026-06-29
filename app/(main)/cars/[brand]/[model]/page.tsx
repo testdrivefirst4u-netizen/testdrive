@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import prisma from "@/lib/prisma";
 import { VehicleDetailPage } from "@/components/vehicle-detail-page";
-import { buildMetadata, vehicleJsonLd, breadcrumbJsonLd } from "@/lib/seo";
+import { buildMetadata, vehicleJsonLd, breadcrumbJsonLd, faqJsonLd } from "@/lib/seo";
 
 export const revalidate = 3600; // revalidate ISR every 1 hour
 
@@ -87,11 +87,14 @@ export default async function CarDetailPage({ params }: Props) {
       url: `/cars/${brand}/${model}`,
     }),
     breadcrumbJsonLd([
-      { name: "Home", url: "/" },
-      { name: "Cars", url: "/cars" },
+      { name: "Home",              url: "/" },
+      { name: "Cars",              url: "/cars" },
       { name: vehicle.brand.name, url: `/cars?brand=${brand}` },
-      { name: vehicle.name, url: `/cars/${brand}/${model}` },
+      { name: vehicle.name,       url: `/cars/${brand}/${model}` },
     ]),
+    ...(vehicle.faqs.length > 0 ? [faqJsonLd(
+      vehicle.faqs.map(f => ({ question: f.question, answer: f.answer }))
+    )] : []),
   ];
 
   return (

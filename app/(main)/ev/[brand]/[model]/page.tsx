@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import prisma from "@/lib/prisma";
 import { VehicleDetailPage } from "@/components/vehicle-detail-page";
-import { buildMetadata, vehicleJsonLd, breadcrumbJsonLd } from "@/lib/seo";
+import { buildMetadata, vehicleJsonLd, breadcrumbJsonLd, faqJsonLd } from "@/lib/seo";
 
 export const revalidate = 3600;
 
@@ -62,5 +62,27 @@ export default async function EVDetailPage({ params }: Props) {
     include: { brand: { select: { name: true, slug: true } }, images: { where: { sortOrder: 0 }, take: 1 } },
   });
 
-  return <VehicleDetailPage vehicle={vehicle as any} similar={similar as any} vehicleType="ev" />;
+  const jsonLd = [
+    vehicleJsonLd({
+      name: vehicle.name, brand: vehicle.brand.name,
+      description: vehicle.description,
+      priceMin: vehicle.priceMin, priceMax: vehicle.priceMax,
+      image: vehicle.images[0]?.url,
+      url: `/ev/${brand}/${model}`,
+    }),
+    breadcrumbJsonLd([
+      { name: "Home",              url: "/" },
+      { name: "Electric Vehicles", url: "/ev" },
+      { name: vehicle.brand.name, url: `/ev?brand=${brand}` },
+      { name: vehicle.name,       url: `/ev/${brand}/${model}` },
+    ]),
+    ...(vehicle.faqs.length > 0 ? [faqJsonLd(vehicle.faqs.map(f => ({ question: f.question, answer: f.answer })))] : []),
+  ];
+
+  return (
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <VehicleDetailPage vehicle={vehicle as any} similar={similar as any} vehicleType="ev" />
+    </>
+  );
 }

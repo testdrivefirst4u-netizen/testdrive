@@ -30,17 +30,21 @@ export async function PUT(req: NextRequest) {
   if (!dealer) return NextResponse.json({ error: "No dealer profile" }, { status: 404 });
 
   const body = await req.json();
-  // Only allow editing safe fields
-  const { phone, managerName, managerPhone, address, businessHours } = body;
+  const { phone, managerName, managerPhone, address, businessHours,
+          crmWebhookUrl, crmApiKey, crmApiKeyType } = body;
 
   const updated = await prisma.dealer.update({
     where: { id: dealer.id },
     data: {
-      ...(phone        !== undefined ? { phone }        : {}),
-      ...(managerName  !== undefined ? { managerName }  : {}),
-      ...(managerPhone !== undefined ? { managerPhone } : {}),
-      ...(address      !== undefined ? { address }      : {}),
-      ...(businessHours !== undefined ? { businessHours } : {}),
+      ...(phone          !== undefined ? { phone }          : {}),
+      ...(managerName    !== undefined ? { managerName }    : {}),
+      ...(managerPhone   !== undefined ? { managerPhone }   : {}),
+      ...(address        !== undefined ? { address }        : {}),
+      ...(businessHours  !== undefined ? { businessHours }  : {}),
+      // CRM integration fields
+      ...(crmWebhookUrl  !== undefined ? { crmWebhookUrl: crmWebhookUrl || null }  : {}),
+      ...(crmApiKey      !== undefined ? { crmApiKey:     crmApiKey     || null }  : {}),
+      ...(crmApiKeyType  !== undefined ? { crmApiKeyType: crmApiKeyType || null }  : {}),
     },
   });
 

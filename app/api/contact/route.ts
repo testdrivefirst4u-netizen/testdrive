@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { assignDealer } from "@/lib/assign-dealer";
 import { rateLimit } from "@/lib/rate-limit";
+import { pushLeadToCrm, buildCrmPayload } from "@/lib/crm-push";
 
 export async function POST(req: NextRequest) {
   try {
@@ -34,7 +35,7 @@ export async function POST(req: NextRequest) {
       const appendedNotes = existing.notes
         ? `${existing.notes}\n---\n${message}`
         : message;
-      await prisma.lead.update({
+      const updated = await prisma.lead.update({
         where: { id: existing.id },
         data: {
           name,
@@ -45,6 +46,7 @@ export async function POST(req: NextRequest) {
           status: "new",
         },
       });
+      pushLeadToCrm(updated.dealerId, buildCrmPayload(updated));
       return NextResponse.json({ success: true, updated: true });
     }
 
@@ -55,7 +57,7 @@ export async function POST(req: NextRequest) {
       source: "contact_form",
     });
 
-    await prisma.lead.create({
+    const lead = await prisma.lead.create({
       data: {
         name,
         mobile:      mobileClean,
@@ -69,6 +71,7 @@ export async function POST(req: NextRequest) {
         status:      "new",
       },
     });
+    pushLeadToCrm(dealerId, buildCrmPayload(lead));
 
     return NextResponse.json({ success: true });
   } catch (e) {

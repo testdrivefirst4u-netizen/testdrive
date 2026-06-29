@@ -597,6 +597,10 @@ model Dealer {
   businessHours   Json?
   logo            String?
   assignedVehicles String[]
+  // CRM integration — dealer's own CRM webhook
+  crmWebhookUrl   String?
+  crmApiKey       String?
+  crmApiKeyType   String?      // "bearer" | "x-api-key" | "query"
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 

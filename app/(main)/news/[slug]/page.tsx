@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Calendar, User, Eye, ArrowLeft, Tag, Clock, ArrowRight, Newspaper } from "lucide-react";
 import prisma from "@/lib/prisma";
-import { buildMetadata } from "@/lib/seo";
+import { buildMetadata, newsArticleJsonLd, breadcrumbJsonLd } from "@/lib/seo";
 
 interface Props { params: Promise<{ slug: string }> }
 
@@ -19,10 +19,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const article = await getArticle(slug);
   if (!article) return {};
   return buildMetadata({
-    title: article.seo?.metaTitle ?? `${article.title} | Walley Auto News`,
+    title:       article.seo?.metaTitle       ?? `${article.title} | Auto News`,
     description: article.seo?.metaDescription ?? article.excerpt ?? `Read the latest: ${article.title}`,
     canonicalPath: `/news/${slug}`,
-    ogImage: article.seo?.ogImage ?? article.coverImage ?? undefined,
+    ogImage:     article.seo?.ogImage ?? article.coverImage ?? undefined,
+    type:        "article",
+    publishedAt: article.publishedAt ?? article.createdAt,
+    modifiedAt:  article.updatedAt,
+    author:      article.author ?? undefined,
   });
 }
 
@@ -52,7 +56,26 @@ export default async function NewsDetailPage({ params }: Props) {
   const tags: string[] = Array.isArray(article.tags) ? article.tags as string[] : [];
   const mins = readingTime(article.content);
 
+  const jsonLd = [
+    newsArticleJsonLd({
+      title:       article.title,
+      description: article.excerpt,
+      slug,
+      coverImage:  article.coverImage,
+      author:      article.author,
+      publishedAt: article.publishedAt ?? article.createdAt,
+      updatedAt:   article.updatedAt,
+    }),
+    breadcrumbJsonLd([
+      { name: "Home", url: "/" },
+      { name: "News", url: "/news" },
+      { name: article.title, url: `/news/${slug}` },
+    ]),
+  ];
+
   return (
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
     <div className="min-h-screen bg-slate-50">
 
       {/* Hero */}
@@ -230,5 +253,6 @@ export default async function NewsDetailPage({ params }: Props) {
         )}
       </div>
     </div>
+    </>
   );
 }

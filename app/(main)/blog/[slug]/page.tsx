@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Calendar, User, Eye, ArrowLeft, Tag, Clock, ArrowRight, BookOpen } from "lucide-react";
 import prisma from "@/lib/prisma";
-import { buildMetadata } from "@/lib/seo";
+import { buildMetadata, blogPostingJsonLd, breadcrumbJsonLd } from "@/lib/seo";
 
 interface Props { params: Promise<{ slug: string }> }
 
@@ -19,10 +19,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const post = await getPost(slug);
   if (!post) return {};
   return buildMetadata({
-    title: post.seo?.metaTitle ?? `${post.title} | Walley Blog`,
+    title:       post.seo?.metaTitle       ?? `${post.title} | Auto Blog`,
     description: post.seo?.metaDescription ?? post.excerpt ?? `Read: ${post.title}`,
     canonicalPath: `/blog/${slug}`,
-    ogImage: post.seo?.ogImage ?? post.coverImage ?? undefined,
+    ogImage:     post.seo?.ogImage ?? post.coverImage ?? undefined,
+    type:        "article",
+    publishedAt: post.publishedAt ?? post.createdAt,
+    modifiedAt:  post.updatedAt,
+    author:      post.author ?? undefined,
   });
 }
 
@@ -52,7 +56,26 @@ export default async function BlogDetailPage({ params }: Props) {
   const tags: string[] = Array.isArray(post.tags) ? post.tags as string[] : [];
   const mins = readingTime(post.content);
 
+  const jsonLd = [
+    blogPostingJsonLd({
+      title:       post.title,
+      description: post.excerpt,
+      slug,
+      coverImage:  post.coverImage,
+      author:      post.author,
+      publishedAt: post.publishedAt ?? post.createdAt,
+      updatedAt:   post.updatedAt,
+    }),
+    breadcrumbJsonLd([
+      { name: "Home", url: "/" },
+      { name: "Blog", url: "/blog" },
+      { name: post.title, url: `/blog/${slug}` },
+    ]),
+  ];
+
   return (
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
     <div className="min-h-screen bg-slate-50">
 
       {/* Hero */}
@@ -228,5 +251,6 @@ export default async function BlogDetailPage({ params }: Props) {
         )}
       </div>
     </div>
+    </>
   );
 }

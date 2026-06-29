@@ -25,26 +25,31 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id } = await params;
   const body = await req.json();
 
-  const { name, code, brandId, email, phone, managerName, managerPhone, address, city, state, priority, maxLeadsPerDay, status, isAvailable } = body;
+  const { name, code, brandId, email, phone, managerName, managerPhone, address, city, state,
+          priority, maxLeadsPerDay, status, isAvailable,
+          crmWebhookUrl, crmApiKey, crmApiKeyType } = body;
 
   try {
     const dealer = await prisma.dealer.update({
       where: { id },
       data: {
-        ...(name          !== undefined ? { name }                          : {}),
-        ...(code          !== undefined ? { code }                          : {}),
-        ...(brandId       !== undefined ? { brandId }                       : {}),
-        ...(email         !== undefined ? { email }                         : {}),
-        ...(phone         !== undefined ? { phone }                         : {}),
-        ...(managerName   !== undefined ? { managerName }                   : {}),
-        ...(managerPhone  !== undefined ? { managerPhone }                  : {}),
-        ...(address       !== undefined ? { address }                       : {}),
-        ...(city          !== undefined ? { city }                          : {}),
-        ...(state         !== undefined ? { state }                         : {}),
-        ...(priority      !== undefined ? { priority: Number(priority) }    : {}),
-        ...(maxLeadsPerDay !== undefined ? { maxLeadsPerDay: Number(maxLeadsPerDay) } : {}),
-        ...(status        !== undefined ? { status }                        : {}),
-        ...(isAvailable   !== undefined ? { isAvailable }                   : {}),
+        ...(name           !== undefined ? { name }                                        : {}),
+        ...(code           !== undefined ? { code }                                        : {}),
+        ...(brandId        !== undefined ? { brandId }                                     : {}),
+        ...(email          !== undefined ? { email }                                       : {}),
+        ...(phone          !== undefined ? { phone }                                       : {}),
+        ...(managerName    !== undefined ? { managerName }                                 : {}),
+        ...(managerPhone   !== undefined ? { managerPhone }                                : {}),
+        ...(address        !== undefined ? { address }                                     : {}),
+        ...(city           !== undefined ? { city }                                        : {}),
+        ...(state          !== undefined ? { state }                                       : {}),
+        ...(priority       !== undefined ? { priority: Number(priority) }                  : {}),
+        ...(maxLeadsPerDay !== undefined ? { maxLeadsPerDay: Number(maxLeadsPerDay) }      : {}),
+        ...(status         !== undefined ? { status }                                      : {}),
+        ...(isAvailable    !== undefined ? { isAvailable }                                 : {}),
+        ...(crmWebhookUrl  !== undefined ? { crmWebhookUrl:  crmWebhookUrl  || null }      : {}),
+        ...(crmApiKey      !== undefined ? { crmApiKey:      crmApiKey      || null }      : {}),
+        ...(crmApiKeyType  !== undefined ? { crmApiKeyType:  crmApiKeyType  || null }      : {}),
       },
       include: { brand: { select: { id: true, name: true } } },
     });

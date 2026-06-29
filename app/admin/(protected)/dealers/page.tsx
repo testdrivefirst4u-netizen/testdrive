@@ -2,7 +2,8 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   Plus, Pencil, Trash2, X, Save, Loader2, Building2,
-  Phone, Mail, MapPin, Star, AlertTriangle, ToggleLeft, ToggleRight, ChevronUp, ChevronDown,
+  Phone, Mail, MapPin, Star, AlertTriangle, ToggleLeft, ToggleRight,
+  ChevronUp, ChevronDown, Eye, EyeOff, Link2, CheckCircle2,
 } from "lucide-react";
 
 interface Brand  { id: string; name: string }
@@ -12,12 +13,16 @@ interface Dealer {
   city: string; state: string; priority: number; maxLeadsPerDay: number;
   todayLeadCount: number; status: string; isAvailable: boolean;
   brand: { id: string; name: string };
+  crmWebhookUrl?: string | null;
+  crmApiKey?: string | null;
+  crmApiKeyType?: string | null;
 }
 
 const EMPTY_FORM = {
   name: "", code: "", brandId: "", email: "", phone: "",
   managerName: "", managerPhone: "", address: "", city: "", state: "",
   priority: "1", maxLeadsPerDay: "50", status: "ACTIVE",
+  crmWebhookUrl: "", crmApiKey: "", crmApiKeyType: "bearer",
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -25,6 +30,8 @@ const STATUS_COLORS: Record<string, string> = {
   INACTIVE:  "bg-gray-100 text-gray-500",
   SUSPENDED: "bg-red-100 text-red-600",
 };
+
+type CrmTestState = "idle" | "testing" | "ok" | "fail";
 
 export default function AdminDealersPage() {
   const [dealers,    setDealers]    = useState<Dealer[]>([]);
@@ -37,6 +44,10 @@ export default function AdminDealersPage() {
   const [formError,  setFormError]  = useState("");
   const [filterBrand, setFilterBrand] = useState("");
   const [deleting,   setDeleting]   = useState<string | null>(null);
+  const [showCrmKey, setShowCrmKey] = useState(false);
+  const [crmTest,    setCrmTest]    = useState<CrmTestState>("idle");
+  const [crmTestMsg, setCrmTestMsg] = useState("");
+  const [modalTab,   setModalTab]   = useState<"details" | "crm">("details");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -57,6 +68,9 @@ export default function AdminDealersPage() {
     setFormError("");
     setEditing(null);
     setModal("create");
+    setShowCrmKey(false);
+    setCrmTest("idle");
+    setModalTab("details");
   }
 
   function openEdit(d: Dealer) {
@@ -67,10 +81,17 @@ export default function AdminDealersPage() {
       address: d.address ?? "", city: d.city, state: d.state,
       priority: String(d.priority), maxLeadsPerDay: String(d.maxLeadsPerDay),
       status: d.status,
+      crmWebhookUrl: d.crmWebhookUrl ?? "",
+      crmApiKey: d.crmApiKey ?? "",
+      crmApiKeyType: d.crmApiKeyType ?? "bearer",
     });
     setFormError("");
     setEditing(d);
     setModal("edit");
+    setShowCrmKey(false);
+    setCrmTest("idle");
+    setCrmTestMsg("");
+    setModalTab("details");
   }
 
   async function handleSave() {
@@ -115,7 +136,30 @@ export default function AdminDealersPage() {
     load();
   }
 
-  const f = (k: keyof typeof form, v: string) => setForm(p => ({ ...p, [k]: v }));
+  async function testCrm() {
+    if (!form.crmWebhookUrl) { setCrmTestMsg("Enter a webhook URL first"); setCrmTest("fail"); return; }
+    setCrmTest("testing"); setCrmTestMsg("");
+    try {
+      const res = await fetch("/api/admin/dealers/crm-test", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          webhookUrl: form.crmWebhookUrl,
+          apiKey:     form.crmApiKey     || undefined,
+          apiKeyType: form.crmApiKeyType || "bearer",
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setCrmTest("ok"); setCrmTestMsg(`Connected · HTTP ${data.status}`);
+      } else {
+        setCrmTest("fail"); setCrmTestMsg(data.error ?? "Connection failed");
+      }
+    } catch (e: any) {
+      setCrmTest("fail"); setCrmTestMsg(e.message ?? "Network error");
+    }
+  }
+
+  const f = (k: keyof typeof EMPTY_FORM, v: string) => setForm(p => ({ ...p, [k]: v }));
 
   return (
     <div className="space-y-5">
@@ -179,6 +223,11 @@ export default function AdminDealersPage() {
                       {d.city && (
                         <p className="text-[10px] text-gray-400 flex items-center gap-1 mt-0.5">
                           <MapPin className="w-2.5 h-2.5" />{d.city}, {d.state}
+                        </p>
+                      )}
+                      {d.crmWebhookUrl && (
+                        <p className="text-[10px] text-emerald-600 flex items-center gap-1 mt-0.5">
+                          <Link2 className="w-2.5 h-2.5" /> CRM connected
                         </p>
                       )}
                     </td>
@@ -267,6 +316,7 @@ export default function AdminDealersPage() {
       {modal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+            {/* Modal header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
               <h2 className="font-bold text-gray-900">{modal === "create" ? "Add New Dealer" : `Edit — ${editing?.name}`}</h2>
               <button onClick={() => setModal(null)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100">
@@ -274,14 +324,39 @@ export default function AdminDealersPage() {
               </button>
             </div>
 
+            {/* Tabs — only in edit mode */}
+            {modal === "edit" && (
+              <div className="flex border-b border-gray-100 shrink-0 px-6">
+                <button
+                  onClick={() => setModalTab("details")}
+                  className={`py-3 px-1 mr-6 text-sm font-bold border-b-2 transition-colors ${modalTab === "details" ? "border-blue-600 text-blue-600" : "border-transparent text-gray-400 hover:text-gray-600"}`}
+                >
+                  Details
+                </button>
+                <button
+                  onClick={() => setModalTab("crm")}
+                  className={`py-3 px-1 text-sm font-bold border-b-2 transition-colors flex items-center gap-1.5 ${modalTab === "crm" ? "border-violet-600 text-violet-600" : "border-transparent text-gray-400 hover:text-gray-600"}`}
+                >
+                  <Link2 className="w-3.5 h-3.5" />
+                  CRM Integration
+                  {form.crmWebhookUrl && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
+                  )}
+                </button>
+              </div>
+            )}
+
             <div className="p-6 space-y-4 overflow-y-auto flex-1">
+              {/* ── Details tab ── */}
+              {(modal === "create" || modalTab === "details") && (<>
+
               {/* Section: Identity */}
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Dealer Identity</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {[
                   { k: "name",  l: "Dealer Name *",    ph: "Hyundai Showroom Hyd" },
                   { k: "code",  l: "Dealer Code *",    ph: "HYD-HYD-001" },
-                ] .map(({ k, l, ph }) => (
+                ].map(({ k, l, ph }) => (
                   <div key={k}>
                     <label className="text-xs font-semibold text-gray-500 block mb-1.5">{l}</label>
                     <input value={(form as any)[k]} onChange={e => f(k as any, e.target.value)} placeholder={ph}
@@ -357,6 +432,108 @@ export default function AdminDealersPage() {
 
               {formError && (
                 <p className="text-xs text-red-600 bg-red-50 rounded-xl px-3 py-2">{formError}</p>
+              )}
+              </>)}
+
+              {/* ── CRM tab (edit only) ── */}
+              {modal === "edit" && modalTab === "crm" && (
+                <>
+                  <div className="pt-0 flex items-center gap-3">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">CRM Integration</p>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-100 text-violet-600 font-bold">Optional</span>
+                  </div>
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-4">
+                    <p className="text-xs text-gray-500">
+                      When a lead is assigned to this dealer, it will automatically be pushed to their CRM via webhook.
+                    </p>
+
+                    {/* Webhook URL */}
+                    <div>
+                      <label className="text-xs font-semibold text-gray-500 mb-1.5 flex items-center gap-1">
+                        <Link2 className="w-3 h-3" /> Webhook URL
+                      </label>
+                      <input
+                        value={form.crmWebhookUrl}
+                        onChange={e => { f("crmWebhookUrl", e.target.value); setCrmTest("idle"); }}
+                        placeholder="https://crm.example.com/api/leads"
+                        className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white"
+                      />
+                    </div>
+
+                    {/* Auth method + API key */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-semibold text-gray-500 block mb-1.5">Auth Method</label>
+                        <select
+                          value={form.crmApiKeyType}
+                          onChange={e => f("crmApiKeyType", e.target.value)}
+                          className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white"
+                        >
+                          <option value="bearer">Bearer Token</option>
+                          <option value="x-api-key">X-API-Key Header</option>
+                          <option value="query">Query Param (api_key=…)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-gray-500 block mb-1.5">API Key / Token</label>
+                        <div className="relative">
+                          <input
+                            type={showCrmKey ? "text" : "password"}
+                            value={form.crmApiKey}
+                            onChange={e => f("crmApiKey", e.target.value)}
+                            placeholder="sk-…"
+                            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 pr-9 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowCrmKey(s => !s)}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                          >
+                            {showCrmKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Test button */}
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={testCrm}
+                        disabled={crmTest === "testing"}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-violet-600 hover:bg-violet-700 disabled:bg-violet-300 text-white transition-colors"
+                      >
+                        {crmTest === "testing"
+                          ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Testing…</>
+                          : <><Link2 className="w-3.5 h-3.5" /> Test Connection</>
+                        }
+                      </button>
+                      {crmTest === "ok" && (
+                        <span className="flex items-center gap-1 text-xs font-semibold text-emerald-600">
+                          <CheckCircle2 className="w-4 h-4" /> {crmTestMsg}
+                        </span>
+                      )}
+                      {crmTest === "fail" && (
+                        <span className="flex items-center gap-1 text-xs font-semibold text-red-600">
+                          <AlertTriangle className="w-4 h-4" /> {crmTestMsg}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Payload preview */}
+                    <details className="text-xs">
+                      <summary className="cursor-pointer text-gray-400 hover:text-gray-600 font-semibold select-none">
+                        View payload format
+                      </summary>
+                      <pre className="mt-2 bg-gray-900 text-green-400 rounded-xl p-3 overflow-x-auto text-[11px] leading-relaxed">{JSON.stringify({
+                        id: "lead_abc123", name: "Customer Name", mobile: "9876543210",
+                        email: "customer@email.com", city: "Hyderabad", vehicleName: "Hyundai Creta",
+                        source: "website", status: "new",
+                        createdAt: new Date().toISOString(), origin: "testdrivefirst",
+                      }, null, 2)}</pre>
+                    </details>
+                  </div>
+                </>
               )}
             </div>
 
