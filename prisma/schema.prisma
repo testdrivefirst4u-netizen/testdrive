@@ -520,6 +520,7 @@ model Lead {
   notes       String?
   brandId     String?  @db.ObjectId
   dealerId    String?  @db.ObjectId
+  releaseAt   DateTime? @default(now())
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

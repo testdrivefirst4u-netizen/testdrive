@@ -26,6 +26,8 @@ import {
   Inbox,
   Building2,
   Mail,
+  CalendarClock,
+  Upload,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
@@ -53,9 +55,17 @@ const nav = [
       { label: 'FAQs', href: '/admin/faqs', icon: HelpCircle },
     ],
   },
-  { label: 'Leads', href: '/admin/leads', icon: Inbox },
+  {
+    label: 'Leads',
+    icon: Inbox,
+    children: [
+      { label: 'All Leads',    href: '/admin/leads',             icon: Inbox    },
+      { label: 'Bulk Upload',  href: '/admin/leads/bulk-upload', icon: Upload   },
+    ],
+  },
+  { label: 'Follow-ups', href: '/admin/follow-ups', icon: CalendarClock },
   { label: 'Newsletter', href: '/admin/newsletter', icon: Mail },
-  { label: 'Dealers', href: '/admin/dealers', icon: Building2 },
+  { label: 'Dealers',    href: '/admin/dealers',    icon: Building2 },
   { label: 'Banners', href: '/admin/banners', icon: MonitorPlay },
   { label: 'Media Library', href: '/admin/media', icon: ImageIcon },
   { label: 'Users', href: '/admin/users', icon: Users },
@@ -141,9 +151,9 @@ export function AdminSidebar({
               >
                 <item.icon className='w-4 h-4 shrink-0' />
                 {item.label}
-                {item.label === 'Leads' && newLeadsCount > 0 && (
-                  <span className='ml-auto text-[9px] font-black bg-amber-500 text-white px-1.5 py-0.5 rounded-full leading-none'>
-                    {newLeadsCount}
+                {item.label === 'Follow-ups' && (
+                  <span className='ml-auto text-[9px] font-black bg-blue-500 text-white px-1.5 py-0.5 rounded-full leading-none opacity-80'>
+                    ↗
                   </span>
                 )}
               </Link>
@@ -194,7 +204,12 @@ export function AdminSidebar({
                         )}
                       >
                         <child.icon className='w-3.5 h-3.5 shrink-0' />
-                        {child.label}
+                        <span className='flex-1'>{child.label}</span>
+                        {child.href === '/admin/leads' && newLeadsCount > 0 && (
+                          <span className='text-[9px] font-black bg-amber-500 text-white px-1.5 py-0.5 rounded-full leading-none'>
+                            {newLeadsCount}
+                          </span>
+                        )}
                       </Link>
                     );
                   })}

@@ -42,6 +42,14 @@ export async function GET(req: NextRequest) {
         ...(dealer.brandId ? [{ brandId: dealer.brandId, dealerId: null }] : []),
       ],
     },
+    // Show old leads (field absent in MongoDB) OR leads whose release date has passed.
+    // isSet:false catches documents created before releaseAt was added to the schema.
+    {
+      OR: [
+        { releaseAt: { isSet: false } },
+        { releaseAt: { lte: new Date() } },
+      ],
+    },
   ];
 
   if (status) andConditions.push({ status });
