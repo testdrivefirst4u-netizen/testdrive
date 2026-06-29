@@ -16,12 +16,12 @@ import {
 import { useEffect, useState } from 'react';
 
 const NAV = [
-  { href: '/dealer/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/dealer/leads', label: 'My Leads', icon: Car },
+  { href: '/dealer/dashboard',  label: 'Dashboard',  icon: LayoutDashboard },
+  { href: '/dealer/leads',      label: 'My Leads',   icon: Car },
   { href: '/dealer/follow-ups', label: 'Follow-ups', icon: CalendarClock },
-  { href: '/dealer/offers', label: 'My Offers', icon: Tag },
-  { href: '/dealer/team', label: 'My Team', icon: Users, adminOnly: true },
-  { href: '/dealer/profile', label: 'My Profile', icon: User },
+  { href: '/dealer/offers',     label: 'My Offers',  icon: Tag },
+  { href: '/dealer/team',       label: 'My Team',    icon: Users, adminOnly: true },
+  { href: '/dealer/profile',    label: 'My Profile', icon: User },
 ];
 
 export default function DealerSidebar({
@@ -32,7 +32,9 @@ export default function DealerSidebar({
   userName: string;
 }) {
   const path = usePathname();
-  const [unread, setUnread] = useState(0);
+
+  // New-lead badge
+  const [unread,    setUnread]    = useState(0);
   const [lastCheck, setLastCheck] = useState(() => {
     if (typeof window === 'undefined')
       return new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -42,8 +44,11 @@ export default function DealerSidebar({
     );
   });
 
+  // Follow-up badge (overdue + today)
+  const [fuUrgent, setFuUrgent] = useState(0);
+
   useEffect(() => {
-    async function poll() {
+    async function pollLeads() {
       try {
         const res = await fetch(`/api/dealer/notifications?since=${lastCheck}`);
         if (res.ok) {
@@ -52,9 +57,23 @@ export default function DealerSidebar({
         }
       } catch {}
     }
-    poll();
-    const id = setInterval(poll, 30_000);
-    return () => clearInterval(id);
+
+    async function pollFollowUps() {
+      try {
+        const res = await fetch('/api/dealer/followups/summary');
+        if (res.ok) {
+          const data = await res.json();
+          setFuUrgent((data.overdue ?? 0) + (data.today ?? 0));
+        }
+      } catch {}
+    }
+
+    pollLeads();
+    pollFollowUps();
+
+    const id1 = setInterval(pollLeads,     30_000);
+    const id2 = setInterval(pollFollowUps, 60_000);
+    return () => { clearInterval(id1); clearInterval(id2); };
   }, [lastCheck]);
 
   function markRead() {
@@ -65,12 +84,7 @@ export default function DealerSidebar({
   }
 
   const initials = userName
-    ? userName
-        .split(' ')
-        .map((w) => w[0])
-        .join('')
-        .slice(0, 2)
-        .toUpperCase()
+    ? userName.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
     : 'D';
 
   const roleLabel = role.toLowerCase().replace(/_/g, ' ');
@@ -104,42 +118,52 @@ export default function DealerSidebar({
           Menu
         </p>
         <div className="space-y-0.5">
-          {NAV.filter((item) => !item.adminOnly || role === 'DEALER_ADMIN').map(
-            (item) => {
-              const active = path.startsWith(item.href);
-              const isLeads = item.href === '/dealer/leads';
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={isLeads ? markRead : undefined}
-                  className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group ${
-                    active
-                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
-                      : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800'
-                  }`}
-                >
-                  <span className="flex items-center gap-2.5">
-                    <item.icon
-                      className={`w-4 h-4 transition-colors ${
-                        active
-                          ? 'text-white'
-                          : 'text-gray-400 group-hover:text-gray-600'
-                      }`}
-                    />
-                    {item.label}
+          {NAV.filter((item) => !item.adminOnly || role === 'DEALER_ADMIN').map((item) => {
+            const active      = path.startsWith(item.href);
+            const isLeads     = item.href === '/dealer/leads';
+            const isFollowUps = item.href === '/dealer/follow-ups';
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={isLeads ? markRead : undefined}
+                className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group ${
+                  active
+                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                    : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800'
+                }`}
+              >
+                <span className="flex items-center gap-2.5">
+                  <item.icon
+                    className={`w-4 h-4 transition-colors ${
+                      active ? 'text-white' : 'text-gray-400 group-hover:text-gray-600'
+                    }`}
+                  />
+                  {item.label}
+                </span>
+
+                {/* New leads badge */}
+                {isLeads && unread > 0 ? (
+                  <span className="text-[10px] font-black bg-red-500 text-white px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-none animate-pulse">
+                    {unread > 99 ? '99+' : unread}
                   </span>
-                  {isLeads && unread > 0 ? (
-                    <span className="text-[10px] font-black bg-red-500 text-white px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-none animate-pulse">
-                      {unread > 99 ? '99+' : unread}
-                    </span>
-                  ) : active ? (
-                    <ChevronRight className="w-3.5 h-3.5 text-white/50" />
-                  ) : null}
-                </Link>
-              );
-            },
-          )}
+                ) : isLeads && active ? (
+                  <ChevronRight className="w-3.5 h-3.5 text-white/50" />
+
+                /* Follow-ups urgent badge */
+                ) : isFollowUps && fuUrgent > 0 ? (
+                  <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-none ${
+                    active ? 'bg-white/20 text-white' : 'bg-red-500 text-white animate-pulse'
+                  }`}>
+                    {fuUrgent > 99 ? '99+' : fuUrgent}
+                  </span>
+                ) : active ? (
+                  <ChevronRight className="w-3.5 h-3.5 text-white/50" />
+                ) : null}
+              </Link>
+            );
+          })}
         </div>
       </nav>
 
@@ -153,10 +177,7 @@ export default function DealerSidebar({
             <p className="text-xs font-semibold text-gray-800 truncate">{userName}</p>
             <p className="text-[10px] text-gray-400 capitalize">{roleLabel}</p>
           </div>
-          <span
-            className="w-2 h-2 rounded-full bg-emerald-400 shrink-0"
-            title="Online"
-          />
+          <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" title="Online" />
         </div>
         <form action={dealerSignOutAction}>
           <button

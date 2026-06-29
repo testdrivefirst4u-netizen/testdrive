@@ -526,8 +526,24 @@ model Lead {
   brand      Brand?         @relation("LeadBrand",  fields: [brandId],  references: [id], onDelete: NoAction, onUpdate: NoAction)
   dealer     Dealer?        @relation("LeadDealer", fields: [dealerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   activities LeadActivity[]
+  followUps  LeadFollowUp[]
 
   @@map("leads")
+}
+
+model LeadFollowUp {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  leadId      String    @db.ObjectId
+  lead        Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  scheduledAt DateTime
+  note        String?
+  status      String    @default("pending")
+  outcome     String?
+  createdAt   DateTime  @default(now())
+  doneAt      DateTime?
+
+  @@map("lead_follow_ups")
 }
 
 model LeadActivity {
