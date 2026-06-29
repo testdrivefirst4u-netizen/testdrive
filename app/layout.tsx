@@ -1,6 +1,7 @@
 import type React from "react";
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -81,6 +82,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
         {children}
         <Toaster position="top-right" richColors />
+
+        {/* Google Analytics */}
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-9ERKYSBEYE"
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-9ERKYSBEYE');
+          `}
+        </Script>
       </body>
     </html>
   );

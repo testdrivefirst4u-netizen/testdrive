@@ -14,7 +14,10 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
   const { id } = await params;
   const dealer = await prisma.dealer.findUnique({
     where: { id },
-    include: { brand: { select: { id: true, name: true } } },
+    include: {
+      brand:     { select: { id: true, name: true } },
+      adminUser: { select: { id: true, name: true, email: true } },
+    },
   });
   if (!dealer) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(dealer);

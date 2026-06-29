@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Plus, Pencil, Trash2, X, Save, Loader2, Building2,
   Phone, Mail, MapPin, Star, AlertTriangle, ToggleLeft, ToggleRight,
-  ChevronUp, ChevronDown, Eye, EyeOff, Link2, CheckCircle2,
+  ChevronUp, ChevronDown, Eye, EyeOff, Link2, CheckCircle2, KeyRound, User,
 } from "lucide-react";
 
 interface Brand  { id: string; name: string }
@@ -13,6 +13,7 @@ interface Dealer {
   city: string; state: string; priority: number; maxLeadsPerDay: number;
   todayLeadCount: number; status: string; isAvailable: boolean;
   brand: { id: string; name: string };
+  adminUser?: { id: string; name: string; email: string } | null;
   crmWebhookUrl?: string | null;
   crmApiKey?: string | null;
   crmApiKeyType?: string | null;
@@ -44,10 +45,17 @@ export default function AdminDealersPage() {
   const [formError,  setFormError]  = useState("");
   const [filterBrand, setFilterBrand] = useState("");
   const [deleting,   setDeleting]   = useState<string | null>(null);
-  const [showCrmKey, setShowCrmKey] = useState(false);
-  const [crmTest,    setCrmTest]    = useState<CrmTestState>("idle");
-  const [crmTestMsg, setCrmTestMsg] = useState("");
-  const [modalTab,   setModalTab]   = useState<"details" | "crm">("details");
+  const [showCrmKey,    setShowCrmKey]    = useState(false);
+  const [crmTest,       setCrmTest]       = useState<CrmTestState>("idle");
+  const [crmTestMsg,    setCrmTestMsg]    = useState("");
+  const [modalTab,      setModalTab]      = useState<"details" | "crm" | "login">("details");
+  // Login credentials state (separate from main form — saved independently)
+  const [loginName,     setLoginName]     = useState("");
+  const [loginEmail,    setLoginEmail]    = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [showLoginPw,   setShowLoginPw]   = useState(false);
+  const [loginSaving,   setLoginSaving]   = useState(false);
+  const [loginMsg,      setLoginMsg]      = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -63,6 +71,11 @@ export default function AdminDealersPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  function resetLoginState() {
+    setLoginName(""); setLoginEmail(""); setLoginPassword("");
+    setShowLoginPw(false); setLoginMsg(null);
+  }
+
   function openCreate() {
     setForm(EMPTY_FORM);
     setFormError("");
@@ -71,6 +84,7 @@ export default function AdminDealersPage() {
     setShowCrmKey(false);
     setCrmTest("idle");
     setModalTab("details");
+    resetLoginState();
   }
 
   function openEdit(d: Dealer) {
@@ -92,6 +106,12 @@ export default function AdminDealersPage() {
     setCrmTest("idle");
     setCrmTestMsg("");
     setModalTab("details");
+    // Pre-fill login fields from linked user
+    setLoginName(d.adminUser?.name   ?? "");
+    setLoginEmail(d.adminUser?.email ?? "");
+    setLoginPassword("");
+    setShowLoginPw(false);
+    setLoginMsg(null);
   }
 
   async function handleSave() {
@@ -134,6 +154,24 @@ export default function AdminDealersPage() {
       body: JSON.stringify({ priority: newPriority }),
     });
     load();
+  }
+
+  async function saveLoginCredentials() {
+    if (!editing || !loginEmail) { setLoginMsg({ type: "err", text: "Email is required" }); return; }
+    setLoginSaving(true); setLoginMsg(null);
+    const res = await fetch(`/api/admin/dealers/${editing.id}/credentials`, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ loginEmail, loginPassword: loginPassword || undefined, loginName: loginName || undefined }),
+    });
+    const data = await res.json();
+    setLoginSaving(false);
+    if (res.ok) {
+      setLoginMsg({ type: "ok", text: "Credentials updated successfully" });
+      setLoginPassword("");
+      load();
+    } else {
+      setLoginMsg({ type: "err", text: data.error ?? "Failed to update credentials" });
+    }
   }
 
   async function testCrm() {
@@ -335,13 +373,20 @@ export default function AdminDealersPage() {
                 </button>
                 <button
                   onClick={() => setModalTab("crm")}
-                  className={`py-3 px-1 text-sm font-bold border-b-2 transition-colors flex items-center gap-1.5 ${modalTab === "crm" ? "border-violet-600 text-violet-600" : "border-transparent text-gray-400 hover:text-gray-600"}`}
+                  className={`py-3 px-1 mr-6 text-sm font-bold border-b-2 transition-colors flex items-center gap-1.5 ${modalTab === "crm" ? "border-violet-600 text-violet-600" : "border-transparent text-gray-400 hover:text-gray-600"}`}
                 >
                   <Link2 className="w-3.5 h-3.5" />
-                  CRM Integration
+                  CRM
                   {form.crmWebhookUrl && (
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
                   )}
+                </button>
+                <button
+                  onClick={() => setModalTab("login")}
+                  className={`py-3 px-1 text-sm font-bold border-b-2 transition-colors flex items-center gap-1.5 ${modalTab === "login" ? "border-orange-500 text-orange-600" : "border-transparent text-gray-400 hover:text-gray-600"}`}
+                >
+                  <KeyRound className="w-3.5 h-3.5" />
+                  Login
                 </button>
               </div>
             )}
@@ -535,17 +580,100 @@ export default function AdminDealersPage() {
                   </div>
                 </>
               )}
+
+              {/* ── Login tab (edit only) ── */}
+              {modal === "edit" && modalTab === "login" && (
+                <div className="space-y-4">
+                  {editing?.adminUser ? (
+                    <>
+                      <div className="flex items-center gap-3 p-3 bg-orange-50 border border-orange-100 rounded-xl">
+                        <div className="w-9 h-9 rounded-xl bg-orange-100 flex items-center justify-center shrink-0">
+                          <User className="w-4 h-4 text-orange-600" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-gray-700">{editing.adminUser.name || "—"}</p>
+                          <p className="text-[11px] text-gray-500">{editing.adminUser.email}</p>
+                        </div>
+                        <span className="ml-auto text-[10px] font-bold bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full">DEALER_ADMIN</span>
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-semibold text-gray-500 block mb-1.5">Display Name</label>
+                        <input
+                          value={loginName}
+                          onChange={e => setLoginName(e.target.value)}
+                          placeholder="Dealer manager name"
+                          className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-semibold text-gray-500 block mb-1.5">Login Email <span className="text-red-500">*</span></label>
+                        <input
+                          type="email"
+                          value={loginEmail}
+                          onChange={e => setLoginEmail(e.target.value)}
+                          placeholder="dealer@example.com"
+                          className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-semibold text-gray-500 block mb-1.5">
+                          New Password <span className="text-gray-400 font-normal">(leave blank to keep current)</span>
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={showLoginPw ? "text" : "password"}
+                            value={loginPassword}
+                            onChange={e => setLoginPassword(e.target.value)}
+                            placeholder="Min 8 characters"
+                            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 pr-9 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                          />
+                          <button type="button" onClick={() => setShowLoginPw(s => !s)}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                            {showLoginPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      {loginMsg && (
+                        <p className={`text-xs font-semibold flex items-center gap-1.5 px-3 py-2 rounded-xl ${loginMsg.type === "ok" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"}`}>
+                          {loginMsg.type === "ok" ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
+                          {loginMsg.text}
+                        </p>
+                      )}
+
+                      <button
+                        onClick={saveLoginCredentials}
+                        disabled={loginSaving}
+                        className="w-full h-10 bg-orange-500 hover:bg-orange-600 disabled:bg-orange-300 text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2 transition-colors"
+                      >
+                        {loginSaving ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving…</> : <><KeyRound className="w-4 h-4" /> Update Login Credentials</>}
+                      </button>
+                    </>
+                  ) : (
+                    <div className="text-center py-10 text-gray-400">
+                      <KeyRound className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                      <p className="text-sm font-medium">No login account linked</p>
+                      <p className="text-xs mt-1">This dealer has no portal login account yet.</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="px-6 py-4 border-t border-gray-100 flex gap-3 justify-end shrink-0">
               <button onClick={() => setModal(null)} className="px-4 py-2 text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl">
                 Cancel
               </button>
-              <button onClick={handleSave} disabled={saving}
-                className="px-5 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl flex items-center gap-2 disabled:opacity-50">
-                {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                {modal === "create" ? "Create Dealer" : "Save Changes"}
-              </button>
+              {modalTab !== "login" && (
+                <button onClick={handleSave} disabled={saving}
+                  className="px-5 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl flex items-center gap-2 disabled:opacity-50">
+                  {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                  {modal === "create" ? "Create Dealer" : "Save Changes"}
+                </button>
+              )}
             </div>
           </div>
         </div>

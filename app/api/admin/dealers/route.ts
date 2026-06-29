@@ -22,7 +22,10 @@ export async function GET(req: NextRequest) {
   const [dealers, total] = await Promise.all([
     prisma.dealer.findMany({
       where,
-      include: { brand: { select: { id: true, name: true } } },
+      include: {
+        brand:     { select: { id: true, name: true } },
+        adminUser: { select: { id: true, name: true, email: true } },
+      },
       orderBy: [{ brandId: "asc" }, { priority: "asc" }],
       skip: (page - 1) * limit,
       take: limit,
