@@ -12,6 +12,8 @@ import { NewsSection } from "@/components/news-section";
 import { buildMetadata } from "@/lib/seo";
 import HeroBannerSlider from "@/components/home/HeroBanners";
 import PromoStrip from "@/components/home/PromoStrip";
+import { RecentlyViewedRail } from "@/components/home/recently-viewed-rail";
+import { CityBanner } from "@/components/home/city-banner";
 import prisma from "@/lib/prisma";
 
 export const revalidate = 60;
@@ -157,10 +159,17 @@ export default async function HomePage() {
   return (
     <div className="bg-white">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify([organizationJsonLd, webSiteJsonLd]) }} />
+      {/* City personalization strip */}
+      <CityBanner />
+
       {/* Hero */}
       <Hero slideBgs={slideBgs} />
       {heroBanners.length > 0 && <HeroBannerSlider banners={heroBanners} />}
       <CategoryNav />
+
+      {/* Recently viewed — only shown if user has history */}
+      <RecentlyViewedRail />
+
       {promoBanners.length > 0 && <PromoStrip banners={promoBanners} />}
 
       {/* Popular Brands */}

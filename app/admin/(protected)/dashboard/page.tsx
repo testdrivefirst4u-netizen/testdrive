@@ -134,7 +134,7 @@ export default async function AdminDashboard() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-500 text-sm mt-0.5">Welcome back to Walley CMS</p>
+          <p className="text-gray-500 text-sm mt-0.5">Welcome back to TestDriveFirst CMS</p>
         </div>
         <div className="flex items-center gap-2">
           {stats.unassignedLeads > 0 && (

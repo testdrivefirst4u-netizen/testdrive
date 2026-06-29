@@ -97,7 +97,7 @@ export default function AdminLoginPage() {
               <Car className="w-8 h-8 text-white" />
             </div>
           </div>
-          <CardTitle className="text-2xl">Walley CMS</CardTitle>
+          <CardTitle className="text-2xl">TestDriveFirst CMS</CardTitle>
           <CardDescription>Sign in to access the admin dashboard</CardDescription>
         </CardHeader>
         <CardContent>

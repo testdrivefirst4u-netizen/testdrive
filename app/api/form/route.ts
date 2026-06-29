@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { name, mobile, city, carName, buyTime, sellCar, vehicleType, brandId } = body;
+    const { name, mobile, city, carName, buyTime, sellCar, vehicleType, brandId, source } = body;
 
     if (!name || !mobile) {
       return NextResponse.json({ error: "Name and mobile are required." }, { status: 400 });
@@ -22,30 +22,54 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Enter a valid 10-digit mobile number." }, { status: 400 });
     }
 
-    // Prevent duplicate leads: same mobile within 24 hours
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const cityClean =
+      city && city !== "Detecting location..." && city !== "Location unavailable"
+        ? city.trim()
+        : null;
+
+    // Dedup: same mobile within 7 days → upsert instead of creating a new lead
+    const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const existing = await prisma.lead.findFirst({
       where: { mobile: mobileClean, createdAt: { gte: since } },
-      select: { id: true },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, dealerId: true, brandId: true },
     });
+
     if (existing) {
-      return NextResponse.json({ success: true, duplicate: true });
+      await prisma.lead.update({
+        where: { id: existing.id },
+        data: {
+          name:        name.trim(),
+          ...(cityClean              && { city: cityClean }),
+          ...(carName                && { vehicleName: carName }),
+          ...(vehicleType            && { vehicleType: String(vehicleType).toUpperCase() }),
+          ...(buyTime                && { buyTime }),
+          ...(sellCar !== undefined  && { sellCar }),
+          status: "new",
+        },
+      });
+      return NextResponse.json({ success: true, updated: true });
     }
 
-    const dealerId = await assignDealer(brandId, { name, mobile: mobileClean, vehicleName: carName, source: "offer_popup" });
+    const dealerId = await assignDealer(brandId, {
+      name,
+      mobile: mobileClean,
+      vehicleName: carName,
+      source: source || "offer_popup",
+    });
 
     await prisma.lead.create({
       data: {
         name:        name.trim(),
         mobile:      mobileClean,
-        city:        city && city !== "Detecting location..." && city !== "Location unavailable" ? city.trim() : null,
-        vehicleName: carName     || null,
+        city:        cityClean         || null,
+        vehicleName: carName           || null,
         vehicleType: vehicleType ? String(vehicleType).toUpperCase() : null,
-        buyTime:     buyTime     || null,
-        sellCar:     sellCar     || null,
-        brandId:     brandId     || null,
-        dealerId:    dealerId    || null,
-        source:      "offer_popup",
+        buyTime:     buyTime           || null,
+        sellCar:     sellCar           || null,
+        brandId:     brandId           || null,
+        dealerId:    dealerId          || null,
+        source:      source            || "offer_popup",
         status:      "new",
       },
     });

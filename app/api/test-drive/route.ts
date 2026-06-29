@@ -18,29 +18,49 @@ export async function POST(req: NextRequest) {
     }
 
     const mobileClean = String(phone).replace(/\D/g, "");
-
-    // Prevent duplicate leads: same mobile within 24 hours
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const existing = await prisma.lead.findFirst({
-      where: { mobile: mobileClean, source: "test_drive", createdAt: { gte: since } },
-      select: { id: true },
-    });
-    if (existing) {
-      return NextResponse.json({ success: true, duplicate: true });
+    if (mobileClean.length !== 10) {
+      return NextResponse.json({ error: "Enter a valid 10-digit mobile number." }, { status: 400 });
     }
 
-    const dealerId = await assignDealer(brandId, { name, mobile: mobileClean, vehicleName: model, source: "test_drive" });
+    // Dedup: same mobile + test_drive within 7 days → upsert
+    const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const existing = await prisma.lead.findFirst({
+      where: { mobile: mobileClean, source: "test_drive", createdAt: { gte: since } },
+      orderBy: { createdAt: "desc" },
+      select: { id: true },
+    });
+
+    if (existing) {
+      await prisma.lead.update({
+        where: { id: existing.id },
+        data: {
+          name,
+          vehicleName: model,
+          ...(city && { city }),
+          ...(date && { buyTime: date }),
+          status: "new",
+        },
+      });
+      return NextResponse.json({ success: true, updated: true });
+    }
+
+    const dealerId = await assignDealer(brandId, {
+      name,
+      mobile: mobileClean,
+      vehicleName: model,
+      source: "test_drive",
+    });
 
     await prisma.lead.create({
       data: {
         name,
         mobile:      mobileClean,
-        city:        city     || null,
+        city:        city      || null,
         vehicleName: model,
         vehicleType: "CAR",
-        buyTime:     date     || null,
-        brandId:     brandId  || null,
-        dealerId:    dealerId || null,
+        buyTime:     date      || null,
+        brandId:     brandId   || null,
+        dealerId:    dealerId  || null,
         source:      "test_drive",
         status:      "new",
       },

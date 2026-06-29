@@ -6,8 +6,11 @@ import Link from "next/link";
 import {
   ChevronLeft, ChevronRight,
   Zap, Star, Droplets, Wind, Gauge, BatteryCharging, Settings2,
+  Heart, GitCompare,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { isWishlisted, toggleWishlist } from "@/lib/wishlist";
+import { useCompare } from "@/lib/compare-context";
 
 export interface SliderVehicle {
   id: string;
@@ -48,11 +51,45 @@ function FuelIcon({ fuelType }: { fuelType: string }) {
 }
 
 function VehicleCard({ v }: { v: SliderVehicle }) {
-  const img = v.images[0]?.url || "/placeholder.svg";
-  const variant = v.variants[0];
-  const href = `/${typeToPath(v.type)}/${v.brand.slug}/${v.slug}`;
-  const isEV = v.isElectric || v.type === "EV";
+  const img       = v.images[0]?.url || "/placeholder.svg";
+  const variant   = v.variants[0];
+  const href      = `/${typeToPath(v.type)}/${v.brand.slug}/${v.slug}`;
+  const isEV      = v.isElectric || v.type === "EV";
   const isUpcoming = v.availabilityStatus === "upcoming" || v.isUpcoming;
+  const priceStr  = v.priceDisplay || (v.priceMin ? `₹${v.priceMin} Lakh` : "");
+
+  const [wishlisted, setWishlisted] = useState(false);
+  const { add, remove, has, canAdd } = useCompare();
+  const inCompare = has(v.id);
+
+  useEffect(() => {
+    setWishlisted(isWishlisted(v.id));
+  }, [v.id]);
+
+  function handleWishlist(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    const next = toggleWishlist({
+      id: v.id, name: v.name, slug: v.slug,
+      brand: v.brand.name, brandSlug: v.brand.slug,
+      type: v.type, price: priceStr, image: img,
+    });
+    setWishlisted(next);
+  }
+
+  function handleCompare(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (inCompare) {
+      remove(v.id);
+    } else if (canAdd) {
+      add({
+        id: v.id, name: v.name, slug: v.slug,
+        brand: v.brand.name, brandSlug: v.brand.slug,
+        type: v.type, price: priceStr, image: img,
+      });
+    }
+  }
 
   return (
     <div className="flex-shrink-0 w-[240px] sm:w-[260px] group">
@@ -69,7 +106,7 @@ function VehicleCard({ v }: { v: SliderVehicle }) {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
 
-          {/* Badges */}
+          {/* Badges — top left */}
           <div className="absolute top-2 left-2 flex flex-wrap gap-1">
             {v.featured && (
               <Badge className="bg-amber-400 text-amber-900 border-0 text-[10px] px-1.5 h-4">
@@ -89,6 +126,22 @@ function VehicleCard({ v }: { v: SliderVehicle }) {
             )}
           </div>
 
+          {/* Wishlist button — top right */}
+          <button
+            onClick={handleWishlist}
+            className={`absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200 shadow-sm ${
+              wishlisted
+                ? "bg-red-500 hover:bg-red-600"
+                : "bg-white/80 hover:bg-white hover:scale-110"
+            }`}
+          >
+            <Heart
+              className={`w-3.5 h-3.5 transition-colors ${
+                wishlisted ? "text-white fill-white" : "text-gray-500"
+              }`}
+            />
+          </button>
+
           {isUpcoming && (
             <div className="absolute bottom-0 left-0 right-0 bg-amber-500/90 text-white text-center text-[10px] py-0.5 font-semibold">
               Coming Soon
@@ -103,11 +156,11 @@ function VehicleCard({ v }: { v: SliderVehicle }) {
             {v.name}
           </h3>
           <p className="text-sm font-bold text-blue-700 mb-2.5">
-            {v.priceDisplay || (v.priceMin ? `₹${v.priceMin} Lakh` : "Price TBD")}
+            {priceStr || "Price TBD"}
           </p>
 
-          {/* Spec pills with icons */}
-          <div className="flex gap-1 flex-wrap">
+          {/* Spec pills */}
+          <div className="flex gap-1 flex-wrap mb-2.5">
             {variant?.fuelType && (
               <span className="flex items-center gap-1 text-[10px] bg-slate-50 border border-gray-100 px-2 py-0.5 rounded-full text-gray-500">
                 <FuelIcon fuelType={variant.fuelType} />
@@ -129,6 +182,21 @@ function VehicleCard({ v }: { v: SliderVehicle }) {
               </span>
             )}
           </div>
+
+          {/* Compare button */}
+          <button
+            onClick={handleCompare}
+            className={`w-full flex items-center justify-center gap-1.5 text-[11px] font-semibold py-1.5 rounded-xl border transition-all duration-150 ${
+              inCompare
+                ? "bg-blue-600 text-white border-blue-600"
+                : canAdd
+                ? "border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50"
+                : "border-gray-100 text-gray-300 cursor-not-allowed"
+            }`}
+          >
+            <GitCompare className="w-3 h-3" />
+            {inCompare ? "Added to Compare" : "Compare"}
+          </button>
         </div>
       </Link>
     </div>
@@ -160,7 +228,7 @@ export function VehicleSliderSkeleton() {
 
 export function VehicleSlider({ vehicles }: { vehicles: SliderVehicle[] }) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [canLeft, setCanLeft] = useState(false);
+  const [canLeft, setCanLeft]   = useState(false);
   const [canRight, setCanRight] = useState(vehicles.length > 4);
 
   const updateArrows = () => {

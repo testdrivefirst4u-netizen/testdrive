@@ -1,7 +1,7 @@
 import prisma from "@/lib/prisma";
 import { SeoManager } from "./seo-manager";
 
-export const metadata = { title: "SEO Management | Walley Admin" };
+export const metadata = { title: "SEO Management | TestDriveFirst Admin" };
 
 export default async function SeoPage() {
   const [vehicles, news, blogs, brands, settings] = await Promise.all([

@@ -18,18 +18,42 @@ export async function POST(req: NextRequest) {
     }
 
     const mobileClean = String(phone).replace(/\D/g, "");
-
-    // Prevent duplicate contact leads: same mobile + source within 24 hours
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const existing = await prisma.lead.findFirst({
-      where: { mobile: mobileClean, source: "contact_form", createdAt: { gte: since } },
-      select: { id: true },
-    });
-    if (existing) {
-      return NextResponse.json({ success: true, duplicate: true });
+    if (mobileClean.length !== 10) {
+      return NextResponse.json({ error: "Enter a valid 10-digit mobile number." }, { status: 400 });
     }
 
-    const dealerId = await assignDealer(brandId, { name, mobile: mobileClean, vehicleName: subject, source: "contact_form" });
+    // Dedup: same mobile + contact_form within 7 days → upsert
+    const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const existing = await prisma.lead.findFirst({
+      where: { mobile: mobileClean, source: "contact_form", createdAt: { gte: since } },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, notes: true },
+    });
+
+    if (existing) {
+      const appendedNotes = existing.notes
+        ? `${existing.notes}\n---\n${message}`
+        : message;
+      await prisma.lead.update({
+        where: { id: existing.id },
+        data: {
+          name,
+          ...(email   && { email }),
+          ...(city    && { city }),
+          ...(subject && { vehicleName: subject }),
+          notes:  appendedNotes,
+          status: "new",
+        },
+      });
+      return NextResponse.json({ success: true, updated: true });
+    }
+
+    const dealerId = await assignDealer(brandId, {
+      name,
+      mobile: mobileClean,
+      vehicleName: subject,
+      source: "contact_form",
+    });
 
     await prisma.lead.create({
       data: {

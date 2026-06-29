@@ -13,17 +13,17 @@ const jakarta = Plus_Jakarta_Sans({
 
 export const metadata: Metadata = {
   title: {
-    default: "Walley — India's Premium Automotive Marketplace",
-    template: "%s | Walley",
+    default: "TestDriveFirst — Cars • Bikes • Commercials",
+    template: "%s | TestDriveFirst",
   },
   description:
     "Compare prices, specs & features across 500+ cars, bikes & EVs. Book test drives, find dealers, calculate EMI. India's most trusted auto platform.",
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://walley.broaddcast.com"),
-  keywords: ["new cars india", "buy cars online", "compare cars", "car prices", "bikes", "electric vehicles", "car dealers"],
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://testdrivefirst.com"),
+  keywords: ["new cars india", "buy cars online", "compare cars", "car prices", "bikes", "electric vehicles", "car dealers", "test drive", "TestDriveFirst"],
   openGraph: {
     type: "website",
     locale: "en_IN",
-    siteName: "Walley by Broaddcast",
+    siteName: "TestDriveFirst",
   },
   twitter: { card: "summary_large_image" },
 };
