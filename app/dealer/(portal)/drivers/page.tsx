@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Plus, Navigation, Phone, Mail, Loader2, X, Save, Eye, EyeOff, Trash2, KeyRound } from "lucide-react";
+import { Plus, Navigation, Phone, Mail, Loader2, X, Save, Eye, EyeOff, Trash2, KeyRound, Bell, BellOff } from "lucide-react";
 import { toast } from "sonner";
 
 interface Driver {
@@ -9,6 +9,7 @@ interface Driver {
   email: string;
   phone: string | null;
   isActive: boolean;
+  _count: { pushSubscriptions: number };
 }
 
 export default function DealerDriversPage() {
@@ -139,6 +140,10 @@ export default function DealerDriversPage() {
               <div className="space-y-1.5 text-xs text-gray-500 mb-3">
                 <div className="flex items-center gap-2"><Mail className="w-3.5 h-3.5 text-gray-400" />{d.email}</div>
                 {d.phone && <div className="flex items-center gap-2"><Phone className="w-3.5 h-3.5 text-gray-400" />{d.phone}</div>}
+                <div className={`flex items-center gap-2 ${d._count.pushSubscriptions > 0 ? "text-emerald-600" : "text-amber-600"}`}>
+                  {d._count.pushSubscriptions > 0 ? <Bell className="w-3.5 h-3.5" /> : <BellOff className="w-3.5 h-3.5" />}
+                  {d._count.pushSubscriptions > 0 ? "Trip alerts enabled" : "Trip alerts not set up"}
+                </div>
               </div>
               <button onClick={() => openPasswordModal(d)}
                 className="w-full flex items-center justify-center gap-1.5 text-xs font-bold text-indigo-600 border border-indigo-200 hover:bg-indigo-50 px-3 py-2 rounded-xl transition-colors">

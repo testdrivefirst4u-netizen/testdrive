@@ -32,7 +32,10 @@ export async function GET() {
 
   const drivers = await prisma.user.findMany({
     where: { dealerId, role: "DRIVER" },
-    select: { id: true, name: true, email: true, phone: true, isActive: true, createdAt: true },
+    select: {
+      id: true, name: true, email: true, phone: true, isActive: true, createdAt: true,
+      _count: { select: { pushSubscriptions: true } },
+    },
     orderBy: { createdAt: "desc" },
   });
 

@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
-import { Loader2, Mail, Phone, KeyRound, Eye, EyeOff, X, Building2 } from "lucide-react";
+import { Loader2, Mail, Phone, KeyRound, Eye, EyeOff, X, Building2, Bell, BellOff } from "lucide-react";
 import { toast } from "sonner";
 
 interface Driver {
@@ -11,6 +11,7 @@ interface Driver {
   isActive: boolean;
   createdAt: string;
   dealer: { id: string; name: string; code: string; brand: { name: string } } | null;
+  _count: { pushSubscriptions: number };
 }
 
 export default function AdminDriversPage() {
@@ -76,7 +77,14 @@ export default function AdminDriversPage() {
     <div className="p-6 space-y-6 max-w-5xl mx-auto">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Drivers</h1>
-        <p className="text-sm text-gray-500 mt-0.5">{drivers.length} drivers across all dealers</p>
+        <p className="text-sm text-gray-500 mt-0.5">
+          {drivers.length} drivers across all dealers
+          {drivers.length > 0 && (
+            <> · <span className="text-amber-600 font-semibold">
+              {drivers.filter((d) => d._count.pushSubscriptions === 0).length} without trip alerts enabled
+            </span></>
+          )}
+        </p>
       </div>
 
       {loading ? (
@@ -116,6 +124,10 @@ export default function AdminDriversPage() {
                     <div className="space-y-1.5 text-xs text-gray-500 mb-3">
                       <div className="flex items-center gap-2 truncate"><Mail className="w-3.5 h-3.5 text-gray-400 shrink-0" />{d.email}</div>
                       {d.phone && <div className="flex items-center gap-2"><Phone className="w-3.5 h-3.5 text-gray-400 shrink-0" />{d.phone}</div>}
+                      <div className={`flex items-center gap-2 ${d._count.pushSubscriptions > 0 ? "text-emerald-600" : "text-amber-600"}`}>
+                        {d._count.pushSubscriptions > 0 ? <Bell className="w-3.5 h-3.5 shrink-0" /> : <BellOff className="w-3.5 h-3.5 shrink-0" />}
+                        {d._count.pushSubscriptions > 0 ? "Trip alerts enabled" : "Trip alerts not set up"}
+                      </div>
                     </div>
                     <button onClick={() => openPasswordModal(d)}
                       className="w-full flex items-center justify-center gap-1.5 text-xs font-bold text-indigo-600 border border-indigo-200 hover:bg-indigo-50 px-3 py-2 rounded-xl transition-colors">

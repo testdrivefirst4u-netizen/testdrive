@@ -17,6 +17,7 @@ export async function GET() {
     select: {
       id: true, name: true, email: true, phone: true, isActive: true, createdAt: true,
       dealer: { select: { id: true, name: true, code: true, brand: { select: { name: true } } } },
+      _count: { select: { pushSubscriptions: true } },
     },
     orderBy: { name: "asc" },
   });
