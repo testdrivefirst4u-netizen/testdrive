@@ -15,6 +15,7 @@ enum Role {
   USER
   DEALER_ADMIN
   SALES_EXECUTIVE
+  DRIVER
 }
 
 enum DealerStatus {
@@ -60,6 +61,7 @@ model User {
   dealer      Dealer?  @relation("DealerStaff", fields: [dealerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   adminDealer Dealer?  @relation("DealerAdmin")
   assignedLeads CrmLead[] @relation("LeadExecutive")
+  driverTrips TestDriveVisit[] @relation("TestDriveDriver")
 
   @@map("users")
 }
@@ -506,30 +508,94 @@ model Banner {
 }
 
 model Lead {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  name        String
-  mobile      String
-  email       String?
-  city        String?
-  vehicleName String?
-  vehicleType String?
-  buyTime     String?
-  sellCar     String?
-  source      String   @default("offer_popup")
-  status      String   @default("new")
-  notes       String?
-  brandId     String?  @db.ObjectId
-  dealerId    String?  @db.ObjectId
-  releaseAt   DateTime? @default(now())
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  name          String
+  mobile        String
+  email         String?
+  city          String?
+  vehicleName   String?
+  vehicleType   String?
+  buyTime       String?
+  sellCar       String?
+  source        String   @default("offer_popup")
+  status        String   @default("new")
+  notes         String?
+  brandId       String?  @db.ObjectId
+  dealerId      String?  @db.ObjectId
+  releaseAt     DateTime? @default(now())
+  // Test-drive scheduling — set when source is "test_drive"
+  preferredTime String?
+  latitude      Float?
+  longitude     Float?
+  address       String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  brand      Brand?         @relation("LeadBrand",  fields: [brandId],  references: [id], onDelete: NoAction, onUpdate: NoAction)
-  dealer     Dealer?        @relation("LeadDealer", fields: [dealerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  activities LeadActivity[]
-  followUps  LeadFollowUp[]
+  brand           Brand?          @relation("LeadBrand",  fields: [brandId],  references: [id], onDelete: NoAction, onUpdate: NoAction)
+  dealer          Dealer?         @relation("LeadDealer", fields: [dealerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  activities      LeadActivity[]
+  followUps       LeadFollowUp[]
+  testDriveVisit  TestDriveVisit?
 
   @@map("leads")
+}
+
+// ─── Test-Drive Visit Tracking (location + arrival photo proof) ─────────────
+
+model TestDriveVisit {
+  id                    String    @id @default(auto()) @map("_id") @db.ObjectId
+  leadId                String    @unique @db.ObjectId
+  dealerId              String    @db.ObjectId
+  assignedDriverId      String?   @db.ObjectId
+  vehicleName           String?
+  status                String    @default("SCHEDULED") // SCHEDULED, EN_ROUTE, ARRIVED, COMPLETED, CANCELLED
+  scheduledAt           DateTime?
+  enRouteAt             DateTime?
+  arrivedAt             DateTime?
+  completedAt           DateTime?
+  proofPhotos           String[]
+  visitLatitude         Float?
+  visitLongitude        Float?
+  distanceFromCustomerM Float?
+  notes                 String?
+  // Driver trip journey — start (leaves dealership), pickup (reaches customer), end (drive finished)
+  tripStartLat          Float?
+  tripStartLon          Float?
+  tripStartAt           DateTime?
+  pickupLat             Float?
+  pickupLon             Float?
+  pickupAt              DateTime?
+  tripEndLat            Float?
+  tripEndLon            Float?
+  tripEndAt             DateTime?
+  customerFeedback      String?
+  customerRating        Int?
+  // Live tracking — periodic pings from the driver's phone while EN_ROUTE / ARRIVED
+  driverLastLat         Float?
+  driverLastLon         Float?
+  driverLastLocationAt  DateTime?
+  tripDistanceKm        Float?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  lead           Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  dealer         Dealer @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+  assignedDriver User?  @relation("TestDriveDriver", fields: [assignedDriverId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  locationPings  TripLocationPing[]
+
+  @@map("test_drive_visits")
+}
+
+model TripLocationPing {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  visitId    String   @db.ObjectId
+  latitude   Float
+  longitude  Float
+  capturedAt DateTime @default(now())
+
+  visit TestDriveVisit @relation(fields: [visitId], references: [id], onDelete: Cascade)
+
+  @@map("trip_location_pings")
 }
 
 model LeadFollowUp {
@@ -629,6 +695,7 @@ model Dealer {
   followUps    CrmFollowUp[]
   testDrives   CrmTestDrive[]
   vehicleOffers DealerVehicleOffer[]
+  testDriveVisits TestDriveVisit[]
 
   @@map("dealers")
 }

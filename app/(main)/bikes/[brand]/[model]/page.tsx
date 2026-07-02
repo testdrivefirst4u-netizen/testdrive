@@ -54,7 +54,9 @@ export default async function BikeDetailPage({ params }: Props) {
   const vehicle = await getVehicle(brand, model);
   if (!vehicle) notFound();
 
-  await prisma.vehicle.update({ where: { id: vehicle.id }, data: { viewCount: { increment: 1 } } });
+  prisma.vehicle
+    .update({ where: { id: vehicle.id }, data: { viewCount: { increment: 1 } } })
+    .catch(() => {});
 
   const similar = await prisma.vehicle.findMany({
     where: { type: { in: ["BIKE", "SCOOTER"] }, status: "PUBLISHED", id: { not: vehicle.id } },

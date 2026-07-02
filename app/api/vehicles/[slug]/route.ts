@@ -30,7 +30,7 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ slug: 
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    await prisma.vehicle.update({ where: { slug }, data: { viewCount: { increment: 1 } } });
+    prisma.vehicle.update({ where: { slug }, data: { viewCount: { increment: 1 } } }).catch(() => {});
 
     const similar = await prisma.vehicle.findMany({
       where: { brandId: vehicle.brandId, status: "PUBLISHED", id: { not: vehicle.id } },

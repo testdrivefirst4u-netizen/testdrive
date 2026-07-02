@@ -13,11 +13,9 @@ export default function DealerTeamPage() {
 
   async function load() {
     setLoading(true);
-    const res = await fetch("/api/admin/users");
+    const res = await fetch("/api/dealer/team");
     const data = await res.json();
-    // Filter only SALES_EXECUTIVE from the returned users
-    const users = Array.isArray(data) ? data : [];
-    setTeam(users.filter((u: any) => u.role === "SALES_EXECUTIVE"));
+    setTeam(Array.isArray(data.team) ? data.team : []);
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
@@ -27,10 +25,10 @@ export default function DealerTeamPage() {
       setError("Name, email and password are required"); return;
     }
     setSaving(true); setError("");
-    const res = await fetch("/api/admin/users", {
+    const res = await fetch("/api/dealer/team", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, role: "SALES_EXECUTIVE" }),
+      body: JSON.stringify(form),
     });
     setSaving(false);
     if (!res.ok) { setError((await res.json()).error ?? "Failed to create"); return; }
@@ -41,7 +39,7 @@ export default function DealerTeamPage() {
 
   async function handleDelete(id: string) {
     if (!confirm("Remove this executive?")) return;
-    await fetch(`/api/admin/users/${id}`, { method: "DELETE" });
+    await fetch(`/api/dealer/team/${id}`, { method: "DELETE" });
     load();
   }
 

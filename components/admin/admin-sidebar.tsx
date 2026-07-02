@@ -28,6 +28,7 @@ import {
   Mail,
   CalendarClock,
   Upload,
+  MapPin,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
@@ -64,6 +65,7 @@ const nav = [
     ],
   },
   { label: 'Follow-ups', href: '/admin/follow-ups', icon: CalendarClock },
+  { label: 'Test Drives', href: '/admin/test-drives', icon: MapPin },
   { label: 'Newsletter', href: '/admin/newsletter', icon: Mail },
   { label: 'Dealers',    href: '/admin/dealers',    icon: Building2 },
   { label: 'Banners', href: '/admin/banners', icon: MonitorPlay },

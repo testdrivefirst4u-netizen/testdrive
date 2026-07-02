@@ -61,6 +61,72 @@ export async function notifyDealerNewLead(params: LeadNotifyParams) {
   }).catch((e) => console.error("[NOTIFY EMAIL]", e));
 }
 
+interface TestDriveBookedParams {
+  dealerEmail: string;
+  dealerName: string;
+  leadName: string;
+  leadMobile: string;
+  vehicleName?: string;
+  scheduledDate?: string | null;
+  scheduledTime?: string | null;
+  address?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+}
+
+export async function notifyDealerTestDriveBooked(params: TestDriveBookedParams) {
+  const transporter = getTransporter();
+  if (!transporter) return;
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://testdrivefirst.com";
+  const mapsUrl =
+    params.latitude != null && params.longitude != null
+      ? `https://maps.google.com/?q=${params.latitude},${params.longitude}`
+      : null;
+
+  const html = `
+<!DOCTYPE html><html><head><meta charset="utf-8"/>
+<style>
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f8fafc;margin:0;padding:20px}
+  .card{max-width:520px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.08)}
+  .head{background:linear-gradient(135deg,#065f46,#10b981);padding:24px 28px}
+  .head h1{color:#fff;margin:0;font-size:18px;font-weight:700}
+  .head p{color:#d1fae5;margin:4px 0 0;font-size:12px}
+  .body{padding:24px 28px}
+  .row{display:flex;gap:8px;margin-bottom:10px}
+  .label{font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;min-width:110px;padding-top:2px}
+  .val{font-size:14px;color:#0f172a;font-weight:600}
+  .divider{border:none;border-top:1px solid #f1f5f9;margin:16px 0}
+  .btn{display:inline-block;background:#10b981;color:#fff;font-weight:700;font-size:13px;padding:10px 20px;border-radius:10px;text-decoration:none;margin-top:8px;margin-right:8px}
+  .btn2{display:inline-block;background:#fff;color:#10b981;border:1.5px solid #10b981;font-weight:700;font-size:13px;padding:9px 20px;border-radius:10px;text-decoration:none;margin-top:8px}
+  .foot{background:#f8fafc;padding:14px 28px;border-top:1px solid #f1f5f9;font-size:11px;color:#94a3b8}
+</style></head><body>
+<div class="card">
+  <div class="head"><h1>Test Drive Booked</h1><p>${params.dealerName} — ${new Date().toLocaleString("en-IN",{timeZone:"Asia/Kolkata"})}</p></div>
+  <div class="body">
+    <div class="row"><span class="label">Customer</span><span class="val">${params.leadName}</span></div>
+    <div class="row"><span class="label">Mobile</span><span class="val"><a href="tel:+91${params.leadMobile}" style="color:#10b981">+91 ${params.leadMobile}</a></span></div>
+    <div class="row"><span class="label">Vehicle</span><span class="val">${params.vehicleName || "—"}</span></div>
+    <div class="row"><span class="label">Date</span><span class="val">${params.scheduledDate || "Not specified"}</span></div>
+    <div class="row"><span class="label">Time</span><span class="val">${params.scheduledTime || "Not specified"}</span></div>
+    <div class="row"><span class="label">Location</span><span class="val">${params.address || "Not shared"}</span></div>
+    <hr class="divider"/>
+    <p style="font-size:13px;color:#475569;margin:0 0 12px">Log in to your dealer portal to manage this test drive — update status and upload arrival photos.</p>
+    <a href="${siteUrl}/dealer/test-drives" class="btn">View Test Drive →</a>
+    ${mapsUrl ? `<a href="${mapsUrl}" class="btn2">Open in Maps →</a>` : ""}
+  </div>
+  <div class="foot">You received this because a test drive was booked with you on Walley.</div>
+</div>
+</body></html>`;
+
+  await transporter.sendMail({
+    from: `"Walley Test Drives" <${process.env.EMAIL_USER}>`,
+    to:   params.dealerEmail,
+    subject: `Test Drive Booked: ${params.vehicleName || "Vehicle"} — ${params.leadName}`,
+    html,
+  }).catch((e) => console.error("[TEST DRIVE EMAIL]", e));
+}
+
 interface FollowUpParams {
   dealerEmail: string;
   dealerName: string;

@@ -3,7 +3,7 @@ import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { Providers } from "@/components/providers";
 import { MobileBottomNav } from "@/components/mobile-bottom-nav";
-import { WhatsAppWidget } from "@/components/whatsapp-widget";
+// import { WhatsAppWidget } from "@/components/whatsapp-widget";
 import { CompareBar } from "@/components/compare-bar";
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
@@ -14,7 +14,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       <Footer />
       {/* Floating / fixed UI */}
       <MobileBottomNav />
-      <WhatsAppWidget />
+      {/* <WhatsAppWidget /> */}
       <CompareBar />
     </Providers>
   );

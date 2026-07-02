@@ -204,26 +204,64 @@ function TestDriveModal({
   const [mobile, setMobile] = useState('');
   const [email, setEmail] = useState('');
   const [preferredDate, setDate] = useState('');
+  const [preferredTime, setTime] = useState('');
   const [city, setCity] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
   const [toast, setToast] = useState(false);
+  const [coords, setCoords] = useState<{ lat: number; lon: number } | null>(null);
+  const [address, setAddress] = useState('');
+  const [locating, setLocating] = useState(false);
 
-  // reset on open
+  // reset on open, then auto-trigger location detection (Swiggy/Zomato style)
   useEffect(() => {
     if (open) {
       setName('');
       setMobile('');
       setEmail('');
       setDate('');
+      setTime('');
       setCity('');
       setLoading(false);
       setSuccess(false);
       setError('');
       setToast(false);
+      setCoords(null);
+      setAddress('');
+      setLocating(false);
+      detectLocation();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  function detectLocation() {
+    if (!navigator.geolocation) return;
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        setCoords({ lat: latitude, lon: longitude });
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`,
+            { headers: { 'Accept-Language': 'en' } }
+          );
+          const data = await res.json();
+          const detected =
+            data.address?.city || data.address?.town || data.address?.county ||
+            data.address?.state_district || data.address?.village || data.display_name || '';
+          if (detected) {
+            setAddress(detected);
+            if (!city) setCity(detected.split(',')[0]?.trim() || detected);
+          }
+        } catch {}
+        setLocating(false);
+      },
+      () => setLocating(false),
+      { timeout: 10000 }
+    );
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -249,6 +287,10 @@ function TestDriveModal({
           model: vehicleName,
           city: city.trim() || undefined,
           date: preferredDate || undefined,
+          time: preferredTime || undefined,
+          latitude: coords?.lat,
+          longitude: coords?.lon,
+          address: address || undefined,
           brandId,
           source: 'test_drive_cta',
         }),
@@ -316,6 +358,45 @@ function TestDriveModal({
               </div>
             </div>
 
+            {/* Location — prominent, Swiggy/Zomato style, auto-detected on open */}
+            <div className={`rounded-xl border-2 px-3 py-3 transition-all ${coords ? 'border-green-200 bg-green-50' : 'border-dashed border-blue-200 bg-blue-50/40'}`}>
+              <div className='flex items-center gap-2'>
+                {locating ? (
+                  <Loader2 className='w-4 h-4 text-blue-600 animate-spin shrink-0' />
+                ) : coords ? (
+                  <CheckCircle className='w-4 h-4 text-green-600 shrink-0' />
+                ) : (
+                  <MapPin className='w-4 h-4 text-blue-600 shrink-0' />
+                )}
+                <div className='flex-1 min-w-0'>
+                  <p className='text-xs font-bold text-gray-800'>
+                    {locating ? 'Detecting your location…' : coords ? 'Location shared' : 'Share your location'}
+                  </p>
+                  {(address || coords) && (
+                    <p className='text-[11px] text-gray-500 truncate'>{address || 'Current location'}</p>
+                  )}
+                  {!locating && !coords && (
+                    <p className='text-[11px] text-gray-500'>Helps us find you precisely for the test drive</p>
+                  )}
+                </div>
+                <button
+                  type='button'
+                  onClick={detectLocation}
+                  disabled={locating}
+                  className='shrink-0 text-xs font-bold text-blue-700 hover:underline disabled:opacity-60'
+                >
+                  {coords ? 'Re-detect' : 'Detect'}
+                </button>
+              </div>
+              <input
+                type='text'
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                placeholder='Or type your city / address manually'
+                className='mt-2.5 w-full border border-gray-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-200 transition-all bg-white'
+              />
+            </div>
+
             {/* Name */}
             <div>
               <label className='text-xs font-semibold text-gray-500 uppercase tracking-wide'>
@@ -369,7 +450,7 @@ function TestDriveModal({
               />
             </div>
 
-            {/* Date + City — 2-col */}
+            {/* Date + Time — 2-col */}
             <div className='grid grid-cols-2 gap-3'>
               <div>
                 <label className='text-xs font-semibold text-gray-500 uppercase tracking-wide'>
@@ -385,13 +466,12 @@ function TestDriveModal({
               </div>
               <div>
                 <label className='text-xs font-semibold text-gray-500 uppercase tracking-wide'>
-                  Dealer City
+                  Preferred Time
                 </label>
                 <input
-                  type='text'
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  placeholder='e.g. Mumbai'
+                  type='time'
+                  value={preferredTime}
+                  onChange={(e) => setTime(e.target.value)}
                   className='mt-1 w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-200 transition-all'
                 />
               </div>

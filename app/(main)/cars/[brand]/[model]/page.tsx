@@ -68,7 +68,9 @@ export default async function CarDetailPage({ params }: Props) {
 
   if (!vehicle) notFound();
 
-  await prisma.vehicle.update({ where: { id: vehicle.id }, data: { viewCount: { increment: 1 } } });
+  prisma.vehicle
+    .update({ where: { id: vehicle.id }, data: { viewCount: { increment: 1 } } })
+    .catch(() => {});
 
   const similar = await prisma.vehicle.findMany({
     where: { brandId: vehicle.brandId, status: "PUBLISHED", id: { not: vehicle.id } },

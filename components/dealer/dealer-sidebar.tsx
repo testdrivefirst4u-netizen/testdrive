@@ -12,16 +12,20 @@ import {
   User,
   Tag,
   ChevronRight,
+  MapPin,
+  Navigation,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 const NAV = [
-  { href: '/dealer/dashboard',  label: 'Dashboard',  icon: LayoutDashboard },
-  { href: '/dealer/leads',      label: 'My Leads',   icon: Car },
-  { href: '/dealer/follow-ups', label: 'Follow-ups', icon: CalendarClock },
-  { href: '/dealer/offers',     label: 'My Offers',  icon: Tag },
-  { href: '/dealer/team',       label: 'My Team',    icon: Users, adminOnly: true },
-  { href: '/dealer/profile',    label: 'My Profile', icon: User },
+  { href: '/dealer/dashboard',    label: 'Dashboard',   icon: LayoutDashboard },
+  { href: '/dealer/leads',        label: 'My Leads',    icon: Car },
+  { href: '/dealer/test-drives',  label: 'Test Drives', icon: MapPin },
+  { href: '/dealer/drivers',      label: 'My Drivers',  icon: Navigation },
+  { href: '/dealer/follow-ups',   label: 'Follow-ups',  icon: CalendarClock },
+  { href: '/dealer/offers',       label: 'My Offers',   icon: Tag },
+  { href: '/dealer/team',         label: 'My Team',     icon: Users, adminOnly: true },
+  { href: '/dealer/profile',      label: 'My Profile',  icon: User },
 ];
 
 export default function DealerSidebar({

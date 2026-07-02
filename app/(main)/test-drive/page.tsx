@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Car, CheckCircle2, MapPin, Calendar, Phone, User,
-  Star, Zap, Shield, Clock, ArrowRight, Loader2, Tag,
+  Star, Zap, Shield, Clock, ArrowRight, Loader2, Tag, Navigation, Edit3,
 } from "lucide-react";
 
 const POPULAR_MODELS = [
@@ -35,13 +35,56 @@ function matchBrand(brandName: string, brands: Brand[]): string {
 }
 
 export default function TestDrivePage() {
-  const [step,     setStep]    = useState<1 | 2 | 3>(1);
+  const [step,     setStep]    = useState<1 | 2 | 3 | 4>(1);
   const [selected, setSelected] = useState("");
   const [brandId,  setBrandId] = useState("");
   const [brands,   setBrands]  = useState<Brand[]>([]);
-  const [form, setForm] = useState({ name: "", phone: "", city: "", date: "" });
+  const [form, setForm] = useState({ name: "", phone: "", city: "", date: "", time: "" });
   const [loading,  setLoading] = useState(false);
   const [apiError, setApiError] = useState("");
+  const [coords, setCoords] = useState<{ lat: number; lon: number } | null>(null);
+  const [address, setAddress] = useState("");
+  const [locating, setLocating] = useState(false);
+  const [locError, setLocError] = useState(false);
+  const [manualEntry, setManualEntry] = useState(false);
+
+  function detectLocation() {
+    if (!navigator.geolocation) { setLocError(true); setManualEntry(true); return; }
+    setLocating(true);
+    setLocError(false);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        setCoords({ lat: latitude, lon: longitude });
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`,
+            { headers: { "Accept-Language": "en" } }
+          );
+          const data = await res.json();
+          const detected = data.display_name ||
+            data.address?.city || data.address?.town || data.address?.county ||
+            data.address?.state_district || data.address?.village || "";
+          if (detected) {
+            setAddress(detected);
+            const cityGuess = data.address?.city || data.address?.town || data.address?.village || "";
+            if (cityGuess && CITIES.includes(cityGuess)) setForm((f) => ({ ...f, city: cityGuess }));
+          }
+        } catch {}
+        setLocating(false);
+      },
+      () => { setLocating(false); setLocError(true); setManualEntry(true); },
+      { timeout: 10000 }
+    );
+  }
+
+  // Auto-trigger location detection the moment the location step opens — Swiggy/Zomato style
+  useEffect(() => {
+    if (step === 2 && !coords && !locError && !locating) {
+      detectLocation();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
 
   useEffect(() => {
     fetch("/api/brands")
@@ -71,19 +114,27 @@ export default function TestDrivePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: form.name, phone: form.phone,
-          city: form.city, date: form.date,
+          city: form.city, date: form.date, time: form.time,
+          latitude: coords?.lat, longitude: coords?.lon, address: address || undefined,
           model: selected, brandId,
         }),
       });
       const data = await res.json();
       if (!res.ok) { setApiError(data.error || "Something went wrong."); return; }
-      setStep(3);
+      setStep(4);
     } catch {
       setApiError("Network error. Please try again.");
     } finally {
       setLoading(false);
     }
   }
+
+  const STEPS = [
+    { n: 1, label: "Vehicle"  },
+    { n: 2, label: "Location" },
+    { n: 3, label: "Details"  },
+    { n: 4, label: "Confirm"  },
+  ] as const;
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -118,11 +169,7 @@ export default function TestDrivePage() {
       {/* Steps indicator */}
       <div className="sticky top-14 sm:top-16 z-10 bg-white border-b border-gray-100 shadow-sm">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-2">
-          {[
-            { n: 1, label: "Choose Vehicle" },
-            { n: 2, label: "Your Details"   },
-            { n: 3, label: "Confirm"        },
-          ].map((s, i) => (
+          {STEPS.map((s, i) => (
             <div key={s.n} className="flex items-center gap-2 flex-1">
               <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
                 step > s.n ? "bg-green-500 text-white" : step === s.n ? "bg-blue-700 text-white" : "bg-gray-100 text-gray-400"
@@ -130,7 +177,7 @@ export default function TestDrivePage() {
                 {step > s.n ? <CheckCircle2 className="w-4 h-4" /> : s.n}
               </div>
               <span className={`text-xs font-semibold hidden sm:block ${step === s.n ? "text-blue-700" : "text-gray-400"}`}>{s.label}</span>
-              {i < 2 && <div className="flex-1 h-px bg-gray-200 mx-1 hidden sm:block" />}
+              {i < STEPS.length - 1 && <div className="flex-1 h-px bg-gray-200 mx-1 hidden sm:block" />}
             </div>
           ))}
         </div>
@@ -205,8 +252,87 @@ export default function TestDrivePage() {
           </div>
         )}
 
-        {/* Step 2 — form */}
+        {/* Step 2 — location (Swiggy/Zomato style, prominent + auto-detected) */}
         {step === 2 && (
+          <div>
+            <h2 className="text-xl font-bold text-gray-900 mb-1">Where should we bring the car?</h2>
+            <p className="text-sm text-gray-500 mb-6">
+              Booking for: <strong className="text-blue-700">{selected}</strong>
+              <button type="button" onClick={() => setStep(1)} className="text-xs text-gray-400 hover:text-blue-600 ml-2 underline">change</button>
+            </p>
+
+            <div className={`rounded-3xl border-2 p-6 text-center transition-all ${
+              coords ? "border-green-200 bg-green-50" : "border-blue-100 bg-blue-50"
+            }`}>
+              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 ${
+                coords ? "bg-green-100" : "bg-blue-100"
+              }`}>
+                {locating ? (
+                  <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+                ) : coords ? (
+                  <CheckCircle2 className="w-8 h-8 text-green-600" />
+                ) : (
+                  <MapPin className="w-8 h-8 text-blue-600" />
+                )}
+              </div>
+
+              {locating && <p className="font-bold text-gray-900">Detecting your location…</p>}
+
+              {!locating && coords && (
+                <>
+                  <p className="font-bold text-gray-900">Location shared</p>
+                  <p className="text-sm text-gray-600 mt-1.5 max-w-sm mx-auto line-clamp-2">{address || "Current location"}</p>
+                  <button type="button" onClick={detectLocation}
+                    className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-blue-700 hover:underline">
+                    <Navigation className="w-3.5 h-3.5" /> Re-detect location
+                  </button>
+                </>
+              )}
+
+              {!locating && !coords && (
+                <>
+                  <p className="font-bold text-gray-900">
+                    {locError ? "Couldn't detect your location" : "Share your location"}
+                  </p>
+                  <p className="text-sm text-gray-500 mt-1 max-w-sm mx-auto">
+                    This helps our driver find you precisely for the test drive — just like a delivery app.
+                  </p>
+                  <button type="button" onClick={detectLocation}
+                    className="mt-4 w-full sm:w-auto inline-flex items-center justify-center gap-2 h-11 px-6 bg-blue-700 hover:bg-blue-600 text-white font-bold text-sm rounded-xl transition-all">
+                    <Navigation className="w-4 h-4" /> Use My Current Location
+                  </button>
+                </>
+              )}
+
+              <button type="button" onClick={() => setManualEntry((v) => !v)}
+                className="mt-4 flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 mx-auto">
+                <Edit3 className="w-3 h-3" /> {manualEntry ? "Hide manual entry" : "Enter city manually instead"}
+              </button>
+            </div>
+
+            {manualEntry && (
+              <div className="mt-4">
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Your City</label>
+                <div className="relative">
+                  <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <select value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })}
+                    className="w-full h-12 pl-10 pr-4 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none text-sm transition-all appearance-none bg-white">
+                    <option value="">Select city</option>
+                    {CITIES.map((c) => <option key={c}>{c}</option>)}
+                  </select>
+                </div>
+              </div>
+            )}
+
+            <button onClick={() => setStep(3)} disabled={!coords && !form.city}
+              className="w-full h-12 mt-6 bg-blue-700 hover:bg-blue-600 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 text-sm">
+              Continue <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {/* Step 3 — your details */}
+        {step === 3 && (
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <h2 className="text-xl font-bold text-gray-900 mb-1">Your Details</h2>
@@ -214,6 +340,12 @@ export default function TestDrivePage() {
                 Booking for: <strong className="text-blue-700">{selected}</strong>
                 <button type="button" onClick={() => setStep(1)} className="text-xs text-gray-400 hover:text-blue-600 ml-2 underline">change</button>
               </p>
+            </div>
+
+            <div className="flex items-center gap-2 bg-green-50 border border-green-100 rounded-xl px-4 py-3 text-sm">
+              <MapPin className="w-4 h-4 text-green-600 shrink-0" />
+              <span className="text-gray-700 truncate flex-1">{address || form.city || "Location shared"}</span>
+              <button type="button" onClick={() => setStep(2)} className="text-xs font-bold text-green-700 hover:underline shrink-0">Change</button>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -236,22 +368,20 @@ export default function TestDrivePage() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">City *</label>
-                <div className="relative">
-                  <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <select required value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })}
-                    className="w-full h-12 pl-10 pr-4 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none text-sm transition-all appearance-none bg-white">
-                    <option value="">Select city</option>
-                    {CITIES.map((c) => <option key={c}>{c}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">Preferred Date</label>
                 <div className="relative">
                   <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input type="date" value={form.date} min={new Date().toISOString().split("T")[0]}
                     onChange={(e) => setForm({ ...form, date: e.target.value })}
+                    className="w-full h-12 pl-10 pr-4 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none text-sm transition-all" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Preferred Time</label>
+                <div className="relative">
+                  <Clock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input type="time" value={form.time}
+                    onChange={(e) => setForm({ ...form, time: e.target.value })}
                     className="w-full h-12 pl-10 pr-4 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none text-sm transition-all" />
                 </div>
               </div>
@@ -273,8 +403,8 @@ export default function TestDrivePage() {
           </form>
         )}
 
-        {/* Step 3 — Success */}
-        {step === 3 && (
+        {/* Step 4 — Success */}
+        {step === 4 && (
           <div className="text-center py-8">
             <div className="w-20 h-20 bg-green-50 border-2 border-green-200 rounded-full flex items-center justify-center mx-auto mb-5">
               <CheckCircle2 className="w-10 h-10 text-green-500" />
@@ -289,8 +419,9 @@ export default function TestDrivePage() {
               <p className="text-xs font-bold text-blue-700 uppercase tracking-wider mb-3">Booking Summary</p>
               <div className="space-y-2 text-sm text-gray-700">
                 <div className="flex justify-between"><span>Vehicle</span><span className="font-semibold">{selected}</span></div>
-                {form.city && <div className="flex justify-between"><span>City</span><span className="font-semibold">{form.city}</span></div>}
+                {(address || form.city) && <div className="flex justify-between gap-3"><span>Location</span><span className="font-semibold text-right truncate">{address || form.city}</span></div>}
                 {form.date && <div className="flex justify-between"><span>Date</span><span className="font-semibold">{new Date(form.date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</span></div>}
+                {form.time && <div className="flex justify-between"><span>Time</span><span className="font-semibold">{form.time}</span></div>}
                 {form.phone && <div className="flex justify-between"><span>Contact</span><span className="font-semibold">{form.phone}</span></div>}
               </div>
             </div>
