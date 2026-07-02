@@ -127,6 +127,50 @@ export async function notifyDealerTestDriveBooked(params: TestDriveBookedParams)
   }).catch((e) => console.error("[TEST DRIVE EMAIL]", e));
 }
 
+interface CustomerTripUpdateParams {
+  customerEmail: string;
+  customerName: string;
+  vehicleName?: string | null;
+  dealerName: string;
+  event: "started" | "completed";
+}
+
+export async function notifyCustomerTripUpdate(params: CustomerTripUpdateParams) {
+  const transporter = getTransporter();
+  if (!transporter) return;
+
+  const isStarted = params.event === "started";
+  const heading = isStarted ? "Your driver is on the way!" : "Thanks for the test drive!";
+  const body = isStarted
+    ? `${params.dealerName} has started heading over with your ${params.vehicleName || "vehicle"}. They'll reach you shortly.`
+    : `We hope you enjoyed test driving the ${params.vehicleName || "vehicle"}. ${params.dealerName} will follow up with you soon.`;
+
+  const html = `
+<!DOCTYPE html><html><head><meta charset="utf-8"/>
+<style>
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f8fafc;margin:0;padding:20px}
+  .card{max-width:480px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.08)}
+  .head{background:linear-gradient(135deg,#1e3a8a,#2563eb);padding:24px 28px}
+  .head h1{color:#fff;margin:0;font-size:18px;font-weight:700}
+  .body{padding:24px 28px}
+  .body p{font-size:14px;color:#475569;line-height:1.6;margin:0}
+  .foot{background:#f8fafc;padding:14px 28px;border-top:1px solid #f1f5f9;font-size:11px;color:#94a3b8}
+</style></head><body>
+<div class="card">
+  <div class="head"><h1>${heading}</h1></div>
+  <div class="body"><p>Hi ${params.customerName},</p><p style="margin-top:10px">${body}</p></div>
+  <div class="foot">Sent by TestDriveFirst on behalf of ${params.dealerName}.</div>
+</div>
+</body></html>`;
+
+  await transporter.sendMail({
+    from: `"Walley" <${process.env.EMAIL_USER}>`,
+    to:   params.customerEmail,
+    subject: heading,
+    html,
+  }).catch((e) => console.error("[CUSTOMER TRIP EMAIL]", e));
+}
+
 interface FollowUpParams {
   dealerEmail: string;
   dealerName: string;

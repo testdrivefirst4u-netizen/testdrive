@@ -62,6 +62,7 @@ model User {
   adminDealer Dealer?  @relation("DealerAdmin")
   assignedLeads CrmLead[] @relation("LeadExecutive")
   driverTrips TestDriveVisit[] @relation("TestDriveDriver")
+  pushSubscriptions PushSubscription[]
 
   @@map("users")
 }
@@ -565,6 +566,7 @@ model TestDriveVisit {
   pickupLat             Float?
   pickupLon             Float?
   pickupAt              DateTime?
+  pickupDistanceM       Float?
   tripEndLat            Float?
   tripEndLon            Float?
   tripEndAt             DateTime?
@@ -596,6 +598,19 @@ model TripLocationPing {
   visit TestDriveVisit @relation(fields: [visitId], references: [id], onDelete: Cascade)
 
   @@map("trip_location_pings")
+}
+
+model PushSubscription {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("push_subscriptions")
 }
 
 model LeadFollowUp {

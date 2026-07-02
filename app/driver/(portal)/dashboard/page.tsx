@@ -3,9 +3,11 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Loader2, Phone, Clock, MapPin, Navigation, Camera,
-  RefreshCw, Star, Car, CheckCircle2, Gauge, Trophy, Radio,
+  RefreshCw, Star, Car, CheckCircle2, Gauge, Trophy, Radio, Bell,
 } from "lucide-react";
 import { toast } from "sonner";
+import { startRingtone, stopRingtone } from "@/lib/ringtone";
+import { isPushSupported, getPushSubscriptionStatus, subscribeDriverToPush } from "@/lib/push-client";
 
 interface Lead {
   name: string;
@@ -34,6 +36,7 @@ interface Stats {
 }
 
 const LOCATION_PING_INTERVAL_MS = 25_000;
+const NEW_TRIP_POLL_MS = 15_000;
 
 function getCurrentPosition(): Promise<GeolocationPosition | null> {
   return new Promise((resolve) => {
@@ -60,14 +63,38 @@ export default function DriverDashboardPage() {
   const [feedbackTripId, setFeedbackTripId] = useState<string | null>(null);
   const [rating, setRating] = useState(0);
   const [feedback, setFeedback] = useState("");
+  const [incomingTrip, setIncomingTrip] = useState<Trip | null>(null);
+  const [pushStatus, setPushStatus] = useState<"granted" | "denied" | "default" | "unsupported" | null>(null);
+  const [enablingPush, setEnablingPush] = useState(false);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const seenTripIds = useRef<Set<string> | null>(null); // null = not initialized yet
+
+  useEffect(() => {
+    if (isPushSupported()) getPushSubscriptionStatus().then(setPushStatus);
+    else setPushStatus("unsupported");
+  }, []);
+
+  async function enablePushAlerts() {
+    setEnablingPush(true);
+    try {
+      const ok = await subscribeDriverToPush();
+      setPushStatus(ok ? "granted" : (await getPushSubscriptionStatus()));
+      if (ok) toast.success("Trip alerts enabled — you'll get notified even if the app is closed");
+      else toast.error("Couldn't enable notifications — check your browser permissions");
+    } finally {
+      setEnablingPush(false);
+    }
+  }
 
   const loadTrips = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch("/api/driver/trips");
       const data = await res.json();
-      setTrips(Array.isArray(data.trips) ? data.trips : []);
+      const fetched: Trip[] = Array.isArray(data.trips) ? data.trips : [];
+      setTrips(fetched);
+      // First load — remember what's already assigned, don't ring for these
+      seenTripIds.current = new Set(fetched.map((t) => t.id));
     } catch {
       toast.error("Failed to load trips");
     } finally {
@@ -83,6 +110,35 @@ export default function DriverDashboardPage() {
   }, []);
 
   useEffect(() => { loadTrips(); loadStats(); }, [loadTrips, loadStats]);
+
+  // Poll for newly-assigned trips and ring like an incoming order (Zomato/Swiggy style)
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch("/api/driver/trips");
+        const data = await res.json();
+        const fetched: Trip[] = Array.isArray(data.trips) ? data.trips : [];
+
+        if (seenTripIds.current) {
+          const brandNew = fetched.find((t) => t.status === "SCHEDULED" && !seenTripIds.current!.has(t.id));
+          if (brandNew && !incomingTrip) {
+            setIncomingTrip(brandNew);
+            startRingtone();
+          }
+        }
+        seenTripIds.current = new Set(fetched.map((t) => t.id));
+        setTrips(fetched);
+      } catch {}
+    }, NEW_TRIP_POLL_MS);
+    return () => clearInterval(interval);
+  }, [incomingTrip]);
+
+  function acknowledgeIncomingTrip() {
+    stopRingtone();
+    setIncomingTrip(null);
+  }
+
+  useEffect(() => () => stopRingtone(), []); // stop ringing if the page unmounts
 
   // Live location reporting — pings every ~25s for whichever trip is currently active
   const activeTrip = trips.find((t) => t.status === "EN_ROUTE" || t.status === "ARRIVED");
@@ -170,6 +226,17 @@ export default function DriverDashboardPage() {
 
   return (
     <div className="px-4 py-5 space-y-5 max-w-md mx-auto">
+      {pushStatus === "default" && (
+        <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3">
+          <Bell className="w-5 h-5 text-amber-600 shrink-0" />
+          <p className="flex-1 text-xs text-amber-800">Get notified instantly when a new trip is assigned — even if this app is closed.</p>
+          <button onClick={enablePushAlerts} disabled={enablingPush}
+            className="shrink-0 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 px-3 py-2 rounded-xl disabled:opacity-50">
+            {enablingPush ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Enable"}
+          </button>
+        </div>
+      )}
+
       {/* Stats header */}
       <div className="bg-gradient-to-br from-emerald-600 to-teal-700 rounded-3xl p-5 text-white shadow-lg shadow-emerald-900/10">
         <p className="text-xs font-semibold text-emerald-100 uppercase tracking-wide mb-3">Your Performance</p>
@@ -378,6 +445,36 @@ export default function DriverDashboardPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Incoming trip alert — Zomato/Swiggy style ringing overlay */}
+      {incomingTrip && (
+        <div className="fixed inset-0 z-[60] bg-emerald-700 flex flex-col items-center justify-center px-6 text-center">
+          <div className="w-24 h-24 rounded-full bg-white/15 flex items-center justify-center mb-6 animate-pulse">
+            <Bell className="w-12 h-12 text-white" />
+          </div>
+          <p className="text-emerald-100 text-xs font-bold uppercase tracking-widest mb-2">New Test Drive Assigned</p>
+          <h2 className="text-2xl font-extrabold text-white mb-4">{incomingTrip.vehicleName ?? "Vehicle"}</h2>
+
+          <div className="bg-white/10 rounded-2xl px-5 py-4 w-full max-w-xs space-y-2 mb-8">
+            <p className="text-white font-semibold">{incomingTrip.lead.name}</p>
+            <p className="text-emerald-100 text-sm flex items-center justify-center gap-1.5">
+              <Clock className="w-3.5 h-3.5" />
+              {[incomingTrip.lead.buyTime, incomingTrip.lead.preferredTime].filter(Boolean).join(" at ") || "Time not specified"}
+            </p>
+            <p className="text-emerald-100 text-sm flex items-center justify-center gap-1.5">
+              <MapPin className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">{incomingTrip.lead.address ?? incomingTrip.lead.city ?? "Location not shared"}</span>
+            </p>
+          </div>
+
+          <button
+            onClick={acknowledgeIncomingTrip}
+            className="w-full max-w-xs h-14 bg-white text-emerald-700 font-extrabold rounded-2xl text-base shadow-lg active:scale-95 transition-transform"
+          >
+            OK, Got It
+          </button>
         </div>
       )}
     </div>

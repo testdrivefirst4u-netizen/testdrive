@@ -51,6 +51,10 @@ export default function DriverLoginPage() {
             {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
             {isPending ? "Signing in…" : "Sign In"}
           </button>
+
+          <p className="text-center text-xs text-gray-400">
+            Forgot your password? Ask your dealer to reset it for you.
+          </p>
         </form>
       </div>
     </div>

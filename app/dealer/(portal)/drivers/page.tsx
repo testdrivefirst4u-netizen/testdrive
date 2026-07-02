@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Plus, Navigation, Phone, Mail, Loader2, X, Save, Eye, EyeOff, Trash2 } from "lucide-react";
+import { Plus, Navigation, Phone, Mail, Loader2, X, Save, Eye, EyeOff, Trash2, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 
 interface Driver {
@@ -19,6 +19,12 @@ export default function DealerDriversPage() {
   const [showPw, setShowPw] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  const [pwModal, setPwModal] = useState<Driver | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [showNewPw, setShowNewPw] = useState(false);
+  const [pwSaving, setPwSaving] = useState(false);
+  const [pwError, setPwError] = useState("");
 
   async function load() {
     setLoading(true);
@@ -56,6 +62,32 @@ export default function DealerDriversPage() {
     if (!confirm("Remove this driver?")) return;
     await fetch(`/api/dealer/drivers/${id}`, { method: "DELETE" });
     load();
+  }
+
+  function openPasswordModal(driver: Driver) {
+    setPwModal(driver);
+    setNewPassword("");
+    setShowNewPw(false);
+    setPwError("");
+  }
+
+  async function handleSetPassword() {
+    if (!pwModal) return;
+    if (newPassword.length < 8) {
+      setPwError("Password must be at least 8 characters");
+      return;
+    }
+    setPwSaving(true);
+    setPwError("");
+    const res = await fetch(`/api/dealer/drivers/${pwModal.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: newPassword }),
+    });
+    setPwSaving(false);
+    if (!res.ok) { setPwError((await res.json()).error ?? "Failed to set password"); return; }
+    toast.success(`Password updated for ${pwModal.name}`);
+    setPwModal(null);
   }
 
   return (
@@ -104,10 +136,14 @@ export default function DealerDriversPage() {
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>
-              <div className="space-y-1.5 text-xs text-gray-500">
+              <div className="space-y-1.5 text-xs text-gray-500 mb-3">
                 <div className="flex items-center gap-2"><Mail className="w-3.5 h-3.5 text-gray-400" />{d.email}</div>
                 {d.phone && <div className="flex items-center gap-2"><Phone className="w-3.5 h-3.5 text-gray-400" />{d.phone}</div>}
               </div>
+              <button onClick={() => openPasswordModal(d)}
+                className="w-full flex items-center justify-center gap-1.5 text-xs font-bold text-indigo-600 border border-indigo-200 hover:bg-indigo-50 px-3 py-2 rounded-xl transition-colors">
+                <KeyRound className="w-3.5 h-3.5" /> Set Password
+              </button>
             </div>
           ))}
         </div>
@@ -161,6 +197,49 @@ export default function DealerDriversPage() {
               <button onClick={handleCreate} disabled={saving}
                 className="px-5 py-2 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl flex items-center gap-2 disabled:opacity-50">
                 {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Create
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pwModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h2 className="font-bold text-gray-900">Set Password — {pwModal.name}</h2>
+              <button onClick={() => setPwModal(null)}
+                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-xs text-gray-500">
+                For security, existing passwords can't be viewed — only replaced. Share the new password with your driver directly.
+              </p>
+              <div>
+                <label className="text-xs font-semibold text-gray-500 block mb-1.5">New Password</label>
+                <div className="relative">
+                  <input type={showNewPw ? "text" : "password"} value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Min 8 characters"
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                  <button type="button" onClick={() => setShowNewPw((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                    {showNewPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+              {pwError && <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{pwError}</p>}
+            </div>
+            <div className="px-6 py-4 border-t border-gray-100 flex gap-3 justify-end">
+              <button onClick={() => setPwModal(null)}
+                className="px-4 py-2 text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl">
+                Cancel
+              </button>
+              <button onClick={handleSetPassword} disabled={pwSaving}
+                className="px-5 py-2 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl flex items-center gap-2 disabled:opacity-50">
+                {pwSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <KeyRound className="w-3.5 h-3.5" />} Update Password
               </button>
             </div>
           </div>

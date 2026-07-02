@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Loader2, MapPin, Navigation, AlertTriangle, RefreshCw, Camera, Star } from "lucide-react";
+import { Loader2, MapPin, Navigation, AlertTriangle, RefreshCw, Camera, Star, XCircle, RotateCcw } from "lucide-react";
+import { toast } from "sonner";
 
 interface Visit {
   id: string;
@@ -17,6 +18,7 @@ interface Visit {
   pickupAt: string | null;
   pickupLat: number | null;
   pickupLon: number | null;
+  pickupDistanceM: number | null;
   tripEndAt: string | null;
   tripEndLat: number | null;
   tripEndLon: number | null;
@@ -66,6 +68,7 @@ export default function AdminTestDrivesPage() {
   const [visits, setVisits] = useState<Visit[]>([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState("");
+  const [managing, setManaging] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -79,6 +82,27 @@ export default function AdminTestDrivesPage() {
   }, [status]);
 
   useEffect(() => { load(); }, [load]);
+
+  async function manageVisit(id: string, action: "cancel" | "reset") {
+    if (action === "cancel" && !confirm("Cancel this test drive booking?")) return;
+    if (action === "reset" && !confirm("Reset this trip back to Scheduled and unassign the driver?")) return;
+    setManaging(id);
+    try {
+      const res = await fetch(`/api/admin/test-drives/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast.error(data.error ?? "Failed to update"); return; }
+      setVisits((prev) => prev.map((v) => (v.id === id ? { ...v, ...data.visit, assignedDriver: action === "reset" ? null : v.assignedDriver } : v)));
+      toast.success(action === "cancel" ? "Trip cancelled" : "Trip reset");
+    } catch {
+      toast.error("Network error");
+    } finally {
+      setManaging(null);
+    }
+  }
 
   return (
     <div className="p-6 space-y-6 max-w-6xl mx-auto">
@@ -132,6 +156,7 @@ export default function AdminTestDrivesPage() {
                 <th className="px-4 py-3">Driver &amp; Journey</th>
                 <th className="px-4 py-3">Feedback</th>
                 <th className="px-4 py-3">Proof</th>
+                <th className="px-4 py-3">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -196,9 +221,14 @@ export default function AdminTestDrivesPage() {
                           )}</p>
                         )}
                         {v.pickupAt && (
-                          <p>Pickup: {fmtTime(v.pickupAt)}{pinLink(v.pickupLat, v.pickupLon) && (
-                            <a href={pinLink(v.pickupLat, v.pickupLon)!} target="_blank" rel="noopener noreferrer" className="text-indigo-500 ml-1">(map)</a>
-                          )}</p>
+                          <p>
+                            Pickup: {fmtTime(v.pickupAt)}{pinLink(v.pickupLat, v.pickupLon) && (
+                              <a href={pinLink(v.pickupLat, v.pickupLon)!} target="_blank" rel="noopener noreferrer" className="text-indigo-500 ml-1">(map)</a>
+                            )}
+                            {v.pickupDistanceM != null && v.pickupDistanceM > 2000 && (
+                              <span className="text-amber-600 font-semibold"> — {(v.pickupDistanceM / 1000).toFixed(1)} km off</span>
+                            )}
+                          </p>
                         )}
                         {v.tripEndAt && (
                           <p>End: {fmtTime(v.tripEndAt)}{pinLink(v.tripEndLat, v.tripEndLon) && (
@@ -236,6 +266,32 @@ export default function AdminTestDrivesPage() {
                         </div>
                       ) : (
                         <span className="text-xs text-gray-300">None</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {v.status !== "COMPLETED" && v.status !== "CANCELLED" ? (
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => manageVisit(v.id, "reset")}
+                            disabled={managing === v.id}
+                            title="Reset to Scheduled and unassign driver"
+                            className="flex items-center gap-1 text-[10px] font-bold text-indigo-600 border border-indigo-200 hover:bg-indigo-50 px-2 py-1 rounded-lg disabled:opacity-50"
+                          >
+                            {managing === v.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3 h-3" />}
+                            Reset
+                          </button>
+                          <button
+                            onClick={() => manageVisit(v.id, "cancel")}
+                            disabled={managing === v.id}
+                            title="Cancel this booking"
+                            className="flex items-center gap-1 text-[10px] font-bold text-red-500 border border-red-200 hover:bg-red-50 px-2 py-1 rounded-lg disabled:opacity-50"
+                          >
+                            <XCircle className="w-3 h-3" />
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-300">—</span>
                       )}
                     </td>
                   </tr>

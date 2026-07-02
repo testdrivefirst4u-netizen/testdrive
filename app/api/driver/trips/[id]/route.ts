@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { driverAuth } from "@/lib/auth-driver";
 import prisma from "@/lib/prisma";
 import { haversineDistanceMeters } from "@/lib/geo";
+import { notifyCustomerTripUpdate } from "@/lib/notify";
 
 async function getDriverSession() {
   const session = await driverAuth();
@@ -19,7 +20,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const driverId = (session.user as any)?.id as string;
   const { id } = await params;
 
-  const trip = await prisma.testDriveVisit.findUnique({ where: { id } });
+  const trip = await prisma.testDriveVisit.findUnique({
+    where: { id },
+    include: {
+      lead: { select: { name: true, email: true, latitude: true, longitude: true } },
+      dealer: { select: { name: true } },
+    },
+  });
   if (!trip || trip.assignedDriverId !== driverId) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
@@ -36,7 +43,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (action === "start" && trip.status === "SCHEDULED") {
     data = { status: "EN_ROUTE", tripStartLat: lat, tripStartLon: lon, tripStartAt: now };
   } else if (action === "pickup" && trip.status === "EN_ROUTE") {
-    data = { status: "ARRIVED", pickupLat: lat, pickupLon: lon, pickupAt: now };
+    let pickupDistanceM: number | null = null;
+    if (lat != null && lon != null && trip.lead.latitude != null && trip.lead.longitude != null) {
+      pickupDistanceM = haversineDistanceMeters(lat, lon, trip.lead.latitude, trip.lead.longitude);
+    }
+    data = { status: "ARRIVED", pickupLat: lat, pickupLon: lon, pickupAt: now, pickupDistanceM };
   } else if (action === "end" && trip.status === "ARRIVED") {
     if (!customerFeedback || typeof customerRating !== "number") {
       return NextResponse.json({ error: "Feedback and rating are required to end the trip" }, { status: 400 });
@@ -75,5 +86,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   const updated = await prisma.testDriveVisit.update({ where: { id }, data });
+
+  // Best-effort customer email — only sent if the customer provided one at booking time
+  if (trip.lead.email && (action === "start" || action === "end")) {
+    notifyCustomerTripUpdate({
+      customerEmail: trip.lead.email,
+      customerName: trip.lead.name,
+      vehicleName: trip.vehicleName,
+      dealerName: trip.dealer.name,
+      event: action === "start" ? "started" : "completed",
+    }).catch(() => {});
+  }
+
   return NextResponse.json({ trip: updated });
 }

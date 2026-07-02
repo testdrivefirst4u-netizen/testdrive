@@ -60,9 +60,24 @@ export async function POST(req: NextRequest) {
     const portal = (body?.portal ?? "admin"); // "admin" | "dealer"
     if (!email) return NextResponse.json({ error: "Email required" }, { status: 400 });
 
+    // Drivers don't self-service reset — their dealer or an admin sets their password directly.
+    if (portal === "driver") {
+      return NextResponse.json({ error: "Drivers cannot reset their own password. Please contact your dealer." }, { status: 403 });
+    }
+
     const user = await prisma.user.findUnique({ where: { email } });
-    // Always return success — never reveal if email exists
-    if (!user) return NextResponse.json({ success: true });
+    if (!user) {
+      return NextResponse.json({ error: "No account found with this email" }, { status: 404 });
+    }
+
+    const portalRoles: Record<string, string[]> = {
+      dealer: ["DEALER_ADMIN", "SALES_EXECUTIVE"],
+      admin:  ["SUPER_ADMIN", "ADMIN", "EDITOR"],
+    };
+    const allowedRoles = portalRoles[portal] ?? portalRoles.admin;
+    if (!allowedRoles.includes(user.role)) {
+      return NextResponse.json({ error: "No account found with this email" }, { status: 404 });
+    }
 
     // Delete any existing token for this user
     await prisma.passwordResetToken.deleteMany({ where: { userId: user.id } });
@@ -71,10 +86,10 @@ export async function POST(req: NextRequest) {
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
     await prisma.passwordResetToken.create({ data: { userId: user.id, token, expiresAt } });
 
-    const baseUrl    = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
-    const resetPath  = portal === "dealer" ? "/dealer/reset-password" : "/admin/reset-password";
-    const resetLink  = `${baseUrl}${resetPath}?token=${token}`;
-    const label      = portal === "dealer" ? "Dealer Portal" : "Admin Panel";
+    const baseUrl   = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+    const resetPath = portal === "dealer" ? "/dealer/reset-password" : "/admin/reset-password";
+    const resetLink = `${baseUrl}${resetPath}?token=${token}`;
+    const label     = portal === "dealer" ? "Dealer Portal" : "Admin Panel";
 
     await sendResetEmail(email, resetLink, label);
 

@@ -46,6 +46,7 @@ interface Visit {
   driverLastLon?: number | null;
   driverLastLocationAt?: string | null;
   tripDistanceKm?: number | null;
+  pickupDistanceM?: number | null;
 }
 
 function timeAgo(iso: string | null | undefined): string {
@@ -146,8 +147,8 @@ export default function DealerTestDrivesPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ driverId: driverId || null }),
       });
-      if (!res.ok) throw new Error();
       const data = await res.json();
+      if (!res.ok) { toast.error(data.error ?? "Failed to assign driver"); return; }
       const assignedDriver = driverId ? drivers.find((d) => d.id === driverId) ?? null : null;
       setVisits((prev) => prev.map((v) => (v.id === visit.id ? { ...v, ...data.visit, assignedDriver } : v)));
       toast.success(driverId ? "Driver assigned" : "Driver unassigned");
@@ -288,6 +289,7 @@ export default function DealerTestDrivesPage() {
                 ? `https://maps.google.com/?q=${visit.lead.latitude},${visit.lead.longitude}`
                 : null;
             const flagDistance = visit.distanceFromCustomerM != null && visit.distanceFromCustomerM > 2000;
+            const flagPickup = visit.pickupDistanceM != null && visit.pickupDistanceM > 2000;
             const nextAction = NEXT_STATUS[visit.status];
 
             return (
@@ -345,6 +347,13 @@ export default function DealerTestDrivesPage() {
                   </select>
                   {assigning === visit.id && <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-400" />}
                 </div>
+
+                {flagPickup && (
+                  <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                    Driver marked "picked up" {(visit.pickupDistanceM! / 1000).toFixed(1)} km from the customer's shared location — please verify.
+                  </div>
+                )}
 
                 {(visit.status === "EN_ROUTE" || visit.status === "ARRIVED") && visit.driverLastLocationAt && (
                   <div className="flex items-center gap-2 text-xs bg-red-50 border border-red-100 rounded-xl px-3 py-2">

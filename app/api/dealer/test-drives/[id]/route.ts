@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { dealerAuth } from "@/lib/auth-dealer";
 import prisma from "@/lib/prisma";
+import { sendPushToUser } from "@/lib/push";
 
 const VALID_STATUSES = ["SCHEDULED", "EN_ROUTE", "ARRIVED", "COMPLETED", "CANCELLED"];
 
@@ -32,7 +33,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!dealerId) return NextResponse.json({ error: "No dealer linked to your account" }, { status: 400 });
 
   const { id } = await params;
-  const visit = await prisma.testDriveVisit.findUnique({ where: { id } });
+  const visit = await prisma.testDriveVisit.findUnique({
+    where: { id },
+    include: { lead: { select: { name: true, preferredTime: true } } },
+  });
   if (!visit || visit.dealerId !== dealerId) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
@@ -49,6 +53,21 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (!driver || driver.dealerId !== dealerId || driver.role !== "DRIVER") {
       return NextResponse.json({ error: "Invalid driver" }, { status: 400 });
     }
+
+    const activeTrip = await prisma.testDriveVisit.findFirst({
+      where: {
+        assignedDriverId: driverId,
+        status: { in: ["EN_ROUTE", "ARRIVED"] },
+        id: { not: id },
+      },
+      select: { id: true, vehicleName: true },
+    });
+    if (activeTrip) {
+      return NextResponse.json(
+        { error: `${driver.name} is currently on another trip (${activeTrip.vehicleName ?? "vehicle"}) — wait for it to finish or pick another driver.` },
+        { status: 409 }
+      );
+    }
   }
 
   const now = new Date();
@@ -63,6 +82,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       ...(status === "COMPLETED" && !visit.completedAt && { completedAt: now }),
     },
   });
+
+  if (driverId && driverId !== visit.assignedDriverId) {
+    sendPushToUser(driverId, {
+      title: "New Test Drive Assigned",
+      body: `${visit.vehicleName ?? "Vehicle"} for ${visit.lead.name}${visit.lead.preferredTime ? ` at ${visit.lead.preferredTime}` : ""}`,
+      url: "/driver/dashboard",
+    }).catch(() => {});
+  }
 
   return NextResponse.json({ visit: updated });
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { driverAuth } from "@/lib/auth-driver";
 import prisma from "@/lib/prisma";
+import { rateLimit } from "@/lib/rate-limit";
 
 async function getDriverSession() {
   const session = await driverAuth();
@@ -15,6 +16,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const driverId = (session.user as any)?.id as string;
+
+  // Client pings ~every 25s per active trip — allow generous headroom, block spam/abuse
+  if (!rateLimit(`driver-ping:${driverId}`, 10, 60 * 1000)) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
   const { id } = await params;
 
   const trip = await prisma.testDriveVisit.findUnique({ where: { id } });

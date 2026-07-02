@@ -4,14 +4,87 @@ import { assignDealer } from "@/lib/assign-dealer";
 import { rateLimit } from "@/lib/rate-limit";
 import { pushLeadToCrm, buildCrmPayload } from "@/lib/crm-push";
 import { notifyDealerTestDriveBooked } from "@/lib/notify";
+import { sendPushToUser } from "@/lib/push";
 
-async function upsertVisit(leadId: string, dealerId: string, vehicleName: string, date?: string, time?: string) {
+// Picks a driver from the dealer's team who has no other trip scheduled within
+// 1 hour of the requested slot — so a driver is never double-booked for the same time.
+// Among the drivers who are free, the one with the fewest trips that day gets it,
+// so bookings spread out evenly instead of always landing on the same driver.
+async function findAvailableDriver(dealerId: string, scheduledAt: Date | null): Promise<string | null> {
+  if (!scheduledAt) return null;
+
+  const drivers = await prisma.user.findMany({
+    where: { dealerId, role: "DRIVER", isActive: true },
+    select: { id: true },
+  });
+  if (!drivers.length) return null;
+
+  const bufferMs = 60 * 60 * 1000; // 1 hour conflict window either side
+  const windowStart = new Date(scheduledAt.getTime() - bufferMs);
+  const windowEnd = new Date(scheduledAt.getTime() + bufferMs);
+
+  const conflicting = await prisma.testDriveVisit.findMany({
+    where: {
+      assignedDriverId: { in: drivers.map((d) => d.id) },
+      status: { in: ["SCHEDULED", "EN_ROUTE", "ARRIVED"] },
+      scheduledAt: { gte: windowStart, lte: windowEnd },
+    },
+    select: { assignedDriverId: true },
+  });
+  const busyIds = new Set(conflicting.map((c) => c.assignedDriverId));
+  const freeDrivers = drivers.filter((d) => !busyIds.has(d.id));
+
+  if (freeDrivers.length <= 1) return freeDrivers[0]?.id ?? null;
+
+  const dayStart = new Date(scheduledAt); dayStart.setHours(0, 0, 0, 0);
+  const dayEnd = new Date(scheduledAt); dayEnd.setHours(23, 59, 59, 999);
+
+  const dayTrips = await prisma.testDriveVisit.findMany({
+    where: {
+      assignedDriverId: { in: freeDrivers.map((d) => d.id) },
+      status: { in: ["SCHEDULED", "EN_ROUTE", "ARRIVED", "COMPLETED"] },
+      scheduledAt: { gte: dayStart, lte: dayEnd },
+    },
+    select: { assignedDriverId: true },
+  });
+
+  const loadCount = new Map<string, number>(freeDrivers.map((d) => [d.id, 0]));
+  for (const t of dayTrips) {
+    loadCount.set(t.assignedDriverId!, (loadCount.get(t.assignedDriverId!) ?? 0) + 1);
+  }
+
+  return freeDrivers.reduce((least, d) =>
+    (loadCount.get(d.id) ?? 0) < (loadCount.get(least.id) ?? 0) ? d : least
+  ).id;
+}
+
+async function upsertVisit(leadId: string, dealerId: string, vehicleName: string, customerName: string, date?: string, time?: string) {
   const scheduledAt = date ? new Date(`${date}T${time || "10:00"}:00`) : null;
+
+  const existing = await prisma.testDriveVisit.findUnique({
+    where: { leadId },
+    select: { assignedDriverId: true },
+  });
+
+  // Only auto-assign if nobody is already manually assigned to this booking
+  const autoDriverId = existing?.assignedDriverId ? null : await findAvailableDriver(dealerId, scheduledAt);
+
   await prisma.testDriveVisit.upsert({
     where: { leadId },
-    update: { dealerId, vehicleName, scheduledAt: scheduledAt ?? undefined, status: "SCHEDULED" },
-    create: { leadId, dealerId, vehicleName, scheduledAt },
+    update: {
+      dealerId, vehicleName, scheduledAt: scheduledAt ?? undefined, status: "SCHEDULED",
+      ...(autoDriverId && { assignedDriverId: autoDriverId }),
+    },
+    create: { leadId, dealerId, vehicleName, scheduledAt, assignedDriverId: autoDriverId },
   });
+
+  if (autoDriverId) {
+    sendPushToUser(autoDriverId, {
+      title: "New Test Drive Assigned",
+      body: `${vehicleName} for ${customerName}${time ? ` at ${time}` : ""}`,
+      url: "/driver/dashboard",
+    }).catch(() => {});
+  }
 }
 
 async function notifyDealerOfBooking(dealerId: string, params: {
@@ -83,7 +156,7 @@ export async function POST(req: NextRequest) {
       pushLeadToCrm(updated.dealerId, buildCrmPayload(updated));
 
       if (updated.dealerId) {
-        await upsertVisit(updated.id, updated.dealerId, model, date, time);
+        await upsertVisit(updated.id, updated.dealerId, model, name, date, time);
         await notifyDealerOfBooking(updated.dealerId, { name, mobileClean, model, date, time, address, city, lat, lon });
       }
 
@@ -113,7 +186,7 @@ export async function POST(req: NextRequest) {
     pushLeadToCrm(dealerId, buildCrmPayload(lead));
 
     if (dealerId) {
-      await upsertVisit(lead.id, dealerId, model, date, time);
+      await upsertVisit(lead.id, dealerId, model, name, date, time);
       await notifyDealerOfBooking(dealerId, { name, mobileClean, model, date, time, address, city, lat, lon });
     }
 
