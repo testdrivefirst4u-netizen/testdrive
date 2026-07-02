@@ -6,7 +6,7 @@ import {
   RefreshCw, Star, Car, CheckCircle2, Gauge, Trophy, Radio, Bell,
 } from "lucide-react";
 import { toast } from "sonner";
-import { startRingtone, stopRingtone } from "@/lib/ringtone";
+import { startRingtone, stopRingtone, unlockAudio } from "@/lib/ringtone";
 import { isPushSupported, getPushSubscriptionStatus, subscribeDriverToPush } from "@/lib/push-client";
 
 interface Lead {
@@ -74,13 +74,48 @@ export default function DriverDashboardPage() {
     else setPushStatus("unsupported");
   }, []);
 
+  // Unlock the ringtone's AudioContext on the very first tap/click anywhere on this
+  // page — browsers won't let audio actually play from a background poll otherwise.
+  useEffect(() => {
+    const unlock = () => unlockAudio();
+    document.addEventListener("pointerdown", unlock, { once: true });
+    document.addEventListener("keydown", unlock, { once: true });
+    return () => {
+      document.removeEventListener("pointerdown", unlock);
+      document.removeEventListener("keydown", unlock);
+    };
+  }, []);
+
   async function enablePushAlerts() {
     setEnablingPush(true);
     try {
-      const ok = await subscribeDriverToPush();
-      setPushStatus(ok ? "granted" : (await getPushSubscriptionStatus()));
-      if (ok) toast.success("Trip alerts enabled — you'll get notified even if the app is closed");
-      else toast.error("Couldn't enable notifications — check your browser permissions");
+      const result = await subscribeDriverToPush();
+      setPushStatus(await getPushSubscriptionStatus());
+
+      if (result.ok) {
+        toast.success("Trip alerts enabled — you'll get notified even if the app is closed");
+        return;
+      }
+
+      switch (result.reason) {
+        case "insecure_context":
+          toast.error("Notifications need HTTPS. This won't work over plain http:// unless you're on localhost.");
+          break;
+        case "unsupported":
+          toast.error("Your browser doesn't support push notifications.");
+          break;
+        case "missing_key":
+          toast.error("Push isn't configured on the server yet — ask your admin.");
+          break;
+        case "permission_denied":
+          toast.error("Notifications are blocked for this site. Open your browser's site settings and allow notifications, then try again.");
+          break;
+        case "permission_dismissed":
+          toast.error("You dismissed the permission prompt. Tap Enable again to retry.");
+          break;
+        default:
+          toast.error(result.detail ? `Couldn't enable notifications: ${result.detail}` : "Couldn't enable notifications.");
+      }
     } finally {
       setEnablingPush(false);
     }
