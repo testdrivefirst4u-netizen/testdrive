@@ -19,7 +19,11 @@ export async function sendPushToUser(userId: string, payload: { title: string; b
       try {
         await webpush.sendNotification(
           { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-          JSON.stringify(payload)
+          JSON.stringify(payload),
+          // "high" urgency tells FCM/Android to wake the device promptly even in
+          // Doze/battery-saver mode — the default "normal" priority can be delayed
+          // for minutes (or dropped) when the phone is idle with the screen off.
+          { urgency: "high", TTL: 300 }
         );
       } catch (e: any) {
         // 410/404 means the subscription is dead — remove it
