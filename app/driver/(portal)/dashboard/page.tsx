@@ -74,12 +74,13 @@ export default function DriverDashboardPage() {
     else setPushStatus("unsupported");
   }, []);
 
-  // Unlock the ringtone's AudioContext on the very first tap/click anywhere on this
-  // page — browsers won't let audio actually play from a background poll otherwise.
+  // Keep the ringtone's AudioContext unlocked on every tap/click — browsers won't play
+  // audio from a background poll otherwise, and mobile browsers can re-suspend the
+  // context after the tab loses focus, so we re-resume on every interaction, not just once.
   useEffect(() => {
     const unlock = () => unlockAudio();
-    document.addEventListener("pointerdown", unlock, { once: true });
-    document.addEventListener("keydown", unlock, { once: true });
+    document.addEventListener("pointerdown", unlock);
+    document.addEventListener("keydown", unlock);
     return () => {
       document.removeEventListener("pointerdown", unlock);
       document.removeEventListener("keydown", unlock);
@@ -159,6 +160,19 @@ export default function DriverDashboardPage() {
           if (brandNew && !incomingTrip) {
             setIncomingTrip(brandNew);
             startRingtone();
+
+            // Native OS notification — plays the system sound reliably, unlike our
+            // in-page beep which depends on the browser's audio-autoplay unlock timing.
+            if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+              try {
+                const n = new Notification("New Test Drive Assigned", {
+                  body: `${brandNew.vehicleName ?? "Vehicle"} for ${brandNew.lead.name}`,
+                  icon: "/icons/icon-192.png",
+                  tag: `trip-${brandNew.id}`,
+                });
+                n.onclick = () => window.focus();
+              } catch {}
+            }
           }
         }
         seenTripIds.current = new Set(fetched.map((t) => t.id));
@@ -269,6 +283,15 @@ export default function DriverDashboardPage() {
             className="shrink-0 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 px-3 py-2 rounded-xl disabled:opacity-50">
             {enablingPush ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Enable"}
           </button>
+        </div>
+      )}
+
+      {pushStatus === "denied" && (
+        <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-2xl px-4 py-3">
+          <Bell className="w-5 h-5 text-red-600 shrink-0" />
+          <p className="flex-1 text-xs text-red-800">
+            Notifications are blocked, so trip alert sound won't play reliably. Tap the 🔒 icon next to the address bar, allow Notifications, then reload this page.
+          </p>
         </div>
       )}
 
