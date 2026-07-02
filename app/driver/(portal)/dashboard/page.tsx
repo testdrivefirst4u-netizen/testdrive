@@ -94,7 +94,11 @@ export default function DriverDashboardPage() {
       setPushStatus(await getPushSubscriptionStatus());
 
       if (result.ok) {
-        toast.success("Trip alerts enabled — you'll get notified even if the app is closed");
+        if (result.pushRegistered) {
+          toast.success("Trip alerts enabled — you'll get notified even if the app is closed");
+        } else {
+          toast.success("Sound alerts enabled for while the app is open. (Background push isn't set up yet — ask your admin for full closed-app alerts.)");
+        }
         return;
       }
 
@@ -103,10 +107,7 @@ export default function DriverDashboardPage() {
           toast.error("Notifications need HTTPS. This won't work over plain http:// unless you're on localhost.");
           break;
         case "unsupported":
-          toast.error("Your browser doesn't support push notifications.");
-          break;
-        case "missing_key":
-          toast.error("Push isn't configured on the server yet — ask your admin.");
+          toast.error("Your browser doesn't support notifications.");
           break;
         case "permission_denied":
           toast.error("Notifications are blocked for this site. Open your browser's site settings and allow notifications, then try again.");

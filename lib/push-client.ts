@@ -15,20 +15,15 @@ export async function getPushSubscriptionStatus(): Promise<"granted" | "denied" 
 }
 
 export type PushSubscribeResult =
-  | { ok: true }
-  | { ok: false; reason: "unsupported" | "insecure_context" | "missing_key" | "permission_denied" | "permission_dismissed" | "error"; detail?: string };
+  | { ok: true; pushRegistered: boolean }
+  | { ok: false; reason: "unsupported" | "insecure_context" | "permission_denied" | "permission_dismissed" | "error"; detail?: string };
 
 export async function subscribeDriverToPush(): Promise<PushSubscribeResult> {
   if (typeof window !== "undefined" && !window.isSecureContext) {
     return { ok: false, reason: "insecure_context" };
   }
-  if (!isPushSupported()) {
+  if (typeof Notification === "undefined") {
     return { ok: false, reason: "unsupported" };
-  }
-
-  const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-  if (!vapidKey) {
-    return { ok: false, reason: "missing_key" };
   }
 
   // Once a user blocks a site, the browser won't re-prompt — requestPermission()
@@ -37,11 +32,29 @@ export async function subscribeDriverToPush(): Promise<PushSubscribeResult> {
     return { ok: false, reason: "permission_denied" };
   }
 
+  // Request notification permission FIRST, independent of whether push/VAPID is
+  // configured — this alone unlocks the in-app sound (native Notification on new
+  // trip), so it must not be blocked by a missing server-side push setup.
+  let permission: NotificationPermission;
   try {
-    const permission = await Notification.requestPermission();
-    if (permission === "denied") return { ok: false, reason: "permission_denied" };
-    if (permission !== "granted") return { ok: false, reason: "permission_dismissed" };
+    permission = await Notification.requestPermission();
+  } catch (e: any) {
+    return { ok: false, reason: "error", detail: e?.message ?? String(e) };
+  }
+  if (permission === "denied") return { ok: false, reason: "permission_denied" };
+  if (permission !== "granted") return { ok: false, reason: "permission_dismissed" };
 
+  // Permission granted — sound now works. Push (works even with the app fully
+  // closed) is a bonus on top, only attempted if the browser + server support it.
+  if (!isPushSupported()) {
+    return { ok: true, pushRegistered: false };
+  }
+  const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  if (!vapidKey) {
+    return { ok: true, pushRegistered: false };
+  }
+
+  try {
     const registration = await navigator.serviceWorker.register("/sw.js", { scope: "/driver/" });
     await navigator.serviceWorker.ready;
 
@@ -59,10 +72,11 @@ export async function subscribeDriverToPush(): Promise<PushSubscribeResult> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ endpoint: json.endpoint, keys: json.keys }),
     });
-    if (!res.ok) return { ok: false, reason: "error", detail: `Server rejected subscription (${res.status})` };
 
-    return { ok: true };
+    return { ok: true, pushRegistered: res.ok };
   } catch (e: any) {
-    return { ok: false, reason: "error", detail: e?.message ?? String(e) };
+    // Permission is granted regardless — sound still works even if push setup failed.
+    console.error("[PUSH SUBSCRIBE]", e);
+    return { ok: true, pushRegistered: false };
   }
 }
